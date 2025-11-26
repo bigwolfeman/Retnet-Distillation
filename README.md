@@ -6,7 +6,7 @@ A hackathon project focused on making next-generation recurrent architectures (R
 
 This project began with a much more ambitious goal: **RheaNet**. The original vision was to fuse the "Memory-as-Context" architecture (Titans) with the retention mechanism of RetNet to create an "Infinite Context" agent without the "lost in the middle" issues.
 
-However, the complexity of managing Titan's Neural Memory modules alongside the already-delicate RetNet recurrence led to a chaotic development cycle. Training stability was non-existent.
+However, the complexity of managing Titan's Neural Memory modules alongside the already-delicate distillation to RetNet recurrence led to a chaotic development cycle. Training stability was non-existent.
 
 I made the hard call to pivot. I stripped the architecture down to a bare RetNet and focused entirely on the training loop. The result is this project: a robust, well-tested distillation pipeline for RetNet.
 

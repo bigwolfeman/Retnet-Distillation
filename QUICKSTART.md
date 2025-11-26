@@ -4,7 +4,7 @@ This guide walks you through the complete pipeline: **Clone → Install → Down
 
 **Estimated Time:**
 - Setup + Data: ~30 minutes
-- Teacher Finetuning: ~2-4 hours (strongly recommended)
+- Teacher Finetuning: ~2-20 hours (strongly recommended, convergence may be impossible with out. Depends on dataset.)
 - Training: Ongoing (checkpoints save automatically)
 
 ---
@@ -118,7 +118,7 @@ cat data/distillation_preprocessed/manifest.json
 
 ## Step 5: Finetune the Teacher (Strongly Recommended)
 
-> ⚠️ **This step is critical for convergence.** Without teacher finetuning, distillation on pure logits struggles to converge. Microsoft research shows **4.5× faster convergence** when the teacher is adapted to your dataset first.
+> ⚠️ **This step is critical for convergence.** Without teacher finetuning, distillation on pure logits struggles to converge. Microsoft research shows **4.5× faster convergence** when the teacher is adapted to your dataset first. In my testing not finetuning could lead to infinite sized gradients and a total inability to converge.
 
 ```bash
 python scripts/finetune_teacher.py --config configs/teacher_ft.yaml
@@ -153,14 +153,11 @@ To train without a finetuned teacher, comment out the `teacher_adapter_path` lin
 python -m src.distillation.scripts.train \
     --config configs/train_direct.yaml \
     --learning-rate 1e-4 \
-    --weight-decay 0.08
+    --weight-decay 0.05
 ```
 
 **What to watch for:**
-- First few batches: Loss should be high (~70-100), then drop rapidly
-- After ~100 steps: Loss should be below 20
-- After ~1000 steps: Loss should be below 10
-- Checkpoints save every 5000 steps to `runs/direct_mode/`
+- You'll see high numbers and some infs on eval (bf16), this should settle out by step 5k.
 
 ### Cached Mode (Pre-computed Logits)
 
@@ -178,7 +175,7 @@ python -m src.distillation.scripts.train --config configs/train_cached.yaml
 ### Network Mode (Separate Teacher Server)
 
 ```bash
-# Terminal 1: Start vLLM server
+# Terminal 1: Start vLLM server (this requires the vLLM endpoint for logits)
 python -m vllm.entrypoints.openai.api_server \
     --model meta-llama/Llama-3.2-1B-Instruct \
     --host 0.0.0.0 \
@@ -195,7 +192,7 @@ Update `configs/train_network.yaml` with your server URL:
 teacher_url: "http://<your-server-ip>:8080"
 ```
 
-For 100x faster logit extraction, install the custom `/v1/topk` endpoint. See [README_FAST_ENDPOINT.md](README_FAST_ENDPOINT.md).
+For 100x faster logit extraction, install the custom `/v1/topk` endpoint. See [README_FAST_ENDPOINT.md](README_FAST_ENDPOINT.md). It is recommended to up the logits to 512 from the default 128.
 
 ---
 
@@ -259,9 +256,9 @@ python -m src.distillation.scripts.train \
 
 ---
 
-## CE Pretraining (Alternative: No Teacher)
+## CE Pretraining
 
-If you want to pretrain the student **without** a teacher (pure cross-entropy on tokens):
+If you want to pretrain the student before distillation (or without it).
 
 ```bash
 python -m src.distillation.scripts.train \
@@ -270,7 +267,7 @@ python -m src.distillation.scripts.train \
     --max-steps 10000
 ```
 
-This uses ~9GB VRAM and doesn't load the teacher. Useful for:
+This uses ~9GB VRAM (not including allocations) and doesn't load the teacher. Useful for:
 - Bootstrapping before distillation
 - Limited VRAM situations
 - Debugging student architecture
