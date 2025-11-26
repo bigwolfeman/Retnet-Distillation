@@ -15,7 +15,7 @@ I made the hard call to pivot. I stripped the architecture down to a bare RetNet
 ### 1. High-Performance Distillation Engine
 
 The core of the project is a modular distillation system that supports three modes:
-(VRAM is with out optimizer)
+(VRAM is with out optimizer or additional allocations)
 | Mode | Description | VRAM | Best For |
 |------|-------------|------|----------|
 | **Direct** | Teacher + student on same GPU | ~14GB | Fast iteration, single GPU |
@@ -202,4 +202,5 @@ The bundled TorchScale library is also under MIT License (Copyright Microsoft Co
 ---
 
 **Happy Distilling!** 🚀
+
 
