@@ -45,6 +45,14 @@ Chasing down bugs in the original Titans implementation led to building a compre
 
 RetNet is still experimental in TorchScale. This repo includes a patched version of TorchScale with necessary fixes for stable training.
 
+## Training Metrics
+
+The pipeline includes comprehensive WandB integration for real-time monitoring:
+
+![Training Metrics](docs/fin-wandb.png)
+
+*Example training run showing loss curves, gradient norms, learning rate schedule, and performance metrics.*
+
 ## Quick Start
 
 See **[QUICKSTART.md](QUICKSTART.md)** for the complete walkthrough.
