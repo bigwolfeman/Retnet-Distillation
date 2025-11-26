@@ -4,7 +4,7 @@ A hackathon project focused on making next-generation recurrent architectures (R
 
 ## History & Pivot
 
-This project began with a much more ambitious goal: **RheaNet**. The original vision was to fuse the "Memory-as-Context" architecture (Titans) with the retention mechanism of RetNet to create an "Infinite Context" agent without the "lost in the middle" issues.
+This project began with a much more ambitious goal: **RheaNet**. The original vision was to fuse the "Memory-as-Context" architecture (Titans) with the retention mechanism of RetNet to create an "Infinite Context" agent without the "lost in the middle" issues. This was something I had half done before the hackathon.
 
 However, the complexity of managing Titan's Neural Memory modules alongside the already-delicate distillation to RetNet recurrence led to a chaotic development cycle. Training stability was non-existent.
 
@@ -15,7 +15,7 @@ I made the hard call to pivot. I stripped the architecture down to a bare RetNet
 ### 1. High-Performance Distillation Engine
 
 The core of the project is a modular distillation system that supports three modes:
-
+(VRAM is with out optimizer)
 | Mode | Description | VRAM | Best For |
 |------|-------------|------|----------|
 | **Direct** | Teacher + student on same GPU | ~14GB | Fast iteration, single GPU |
@@ -190,3 +190,4 @@ The bundled TorchScale library is also under MIT License (Copyright Microsoft Co
 ---
 
 **Happy Distilling!** 🚀
+
