@@ -1,0 +1,52 @@
+# Baseline configuration for DualEncoder training
+# T054: Encoder training for code embedding
+
+model:
+  # Must match main model tokenizer vocabulary
+  vocab_size: 50257        # GPT-2 tokenizer vocab size
+
+  # Architecture (from research.md: 6 layers, 768 dim, 12 heads)
+  d_model: 768             # Embedding dimension
+  n_layers: 6              # Number of Transformer layers
+  n_heads: 12              # Number of attention heads
+  d_ff: 3072               # Feed-forward dimension (4 * d_model)
+  dropout: 0.1             # Dropout rate
+  max_seq_len: 512         # Maximum sequence length for code chunks
+
+training:
+  # Optimization
+  batch_size: 32           # Per-device batch size (increase if GPU allows)
+  learning_rate: 1e-4      # Peak learning rate
+  weight_decay: 0.01       # Weight decay for regularization
+  warmup_steps: 1000       # Linear warmup steps
+  max_steps: 50000         # Total training steps
+
+  # Contrastive loss
+  temperature: 0.07        # Temperature for contrastive loss (default: 0.07)
+
+  # Hard negative mining
+  use_hard_negatives: false       # Enable after initial convergence
+  hard_neg_interval: 5000         # Steps between FAISS index updates
+
+  # Logging and evaluation
+  log_interval: 100               # Steps between metric logging
+  eval_interval: 1000             # Steps between validation runs
+  checkpoint_dir: checkpoints/encoder
+
+  # Wandb configuration
+  wandb_project: retnet-hrm-encoder
+  wandb_entity: null              # Set to your wandb team/user
+  wandb_run_name: null            # Auto-generated if null
+  wandb_tags:
+    - dual-encoder
+    - contrastive
+    - baseline
+
+  # Data paths
+  # TODO: Update with actual data paths
+  train_data_path: data/code_pairs/train.jsonl
+  val_data_path: data/code_pairs/val.jsonl
+  num_workers: 0  # Set to 0 on Windows to avoid epoch transition delays; use 2-4 on Linux
+
+  # Hardware
+  precision: bf16                 # "bf16" or "fp32"

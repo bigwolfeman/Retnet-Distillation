@@ -1,0 +1,30 @@
+{
+  "sources": [
+    {
+      "sourceId": "c6f5a8a4-6b02-46cf-8159-1a4a4f9ff201",
+      "displayName": "Workspace Code Index",
+      "sourceType": "DOCUMENT_INDEX",
+      "assetPaths": [
+        "docs/stabilization/planner_sessions.md"
+      ],
+      "checkpointVersion": "workspace-2025.10",
+      "validatedAt": "2025-10-30T12:00:00+00:00",
+      "freshnessTtlHours": 720,
+      "status": "READY",
+      "landmarkCachePolicy": "REUSE"
+    },
+    {
+      "sourceId": "f80d92a1-55ea-4f5a-88bd-08cf6da7d16d",
+      "displayName": "Global Knowledge Store",
+      "sourceType": "EMBEDDING_STORE",
+      "assetPaths": [
+        "docs/stabilization/proposal_generation.md"
+      ],
+      "checkpointVersion": "global-2025.09",
+      "validatedAt": "2025-10-28T15:30:00+00:00",
+      "freshnessTtlHours": 720,
+      "status": "READY",
+      "landmarkCachePolicy": "REFRESH"
+    }
+  ]
+}

@@ -1,0 +1,402 @@
+"""Contract tests for checkpoint save/load.
+
+Validates checkpoint-contract.md:
+- Save/load round-trip
+- Architecture mismatch warning (FR-011b)
+- Metadata preservation
+- Hourly checkpoint trigger (FR-011c)
+"""
+
+import pytest
+import torch
+import tempfile
+import os
+import time
+import sys
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.models.core import RetNetHRMModel
+from src.config.model_config import ModelConfig
+from src.training.checkpoint import (
+    save_checkpoint,
+    load_checkpoint,
+    CheckpointManager,
+)
+
+
+@pytest.fixture
+def small_model_config():
+    """Create small model config for fast testing."""
+    return ModelConfig(
+        d_model=256,
+        n_layers_retnet=4,
+        n_retention_heads=4,
+        vocab_size=1000,
+        max_seq_len_train=512,
+        max_seq_len_infer=1024,
+        dropout=0.0,
+    )
+
+
+@pytest.fixture
+def model(small_model_config):
+    """Create model instance."""
+    return RetNetHRMModel(config=small_model_config)
+
+
+@pytest.fixture
+def optimizer(model):
+    """Create optimizer."""
+    return torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+
+@pytest.fixture
+def temp_checkpoint_dir():
+    """Create temporary directory for checkpoints."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
+
+
+class TestSaveLoadRoundTrip:
+    """Test save/load round-trip (FR-011)."""
+
+    def test_basic_save_load(self, model, optimizer, temp_checkpoint_dir, small_model_config):
+        """Test basic checkpoint save and load."""
+        checkpoint_path = os.path.join(temp_checkpoint_dir, "test_checkpoint")
+        global_step = 1000
+
+        # Save checkpoint
+        checkpoint_data = save_checkpoint(
+            model=model,
+            optimizer=optimizer,
+            global_step=global_step,
+            save_path=checkpoint_path,
+            upload_to_wandb=False,
+        )
+
+        # Verify files created
+        assert os.path.exists(f"{checkpoint_path}.safetensors"), \
+            "Safetensors file not created"
+        assert os.path.exists(f"{checkpoint_path}.optimizer.pt"), \
+            "Optimizer file not created"
+
+        # Create new model and optimizer
+        model2 = RetNetHRMModel(config=small_model_config)
+        optimizer2 = torch.optim.AdamW(model2.parameters(), lr=1e-4)
+
+        # Load checkpoint
+        loaded_data = load_checkpoint(
+            checkpoint_path=f"{checkpoint_path}.safetensors",
+            model=model2,
+            optimizer=optimizer2,
+            device="cpu",
+        )
+
+        # Verify loaded data
+        assert loaded_data['global_step'] == global_step, \
+            "Global step mismatch"
+
+        # Verify model weights match
+        for p1, p2 in zip(model.parameters(), model2.parameters()):
+            assert torch.allclose(p1, p2, atol=1e-6), \
+                "Model weights mismatch after load"
+
+    def test_save_preserves_metadata(self, model, optimizer, temp_checkpoint_dir):
+        """Test checkpoint preserves metadata (FR-011b)."""
+        checkpoint_path = os.path.join(temp_checkpoint_dir, "metadata_test")
+        global_step = 5000
+        train_loss = 2.5
+        val_loss = 2.7
+
+        # Save with metadata
+        checkpoint_data = save_checkpoint(
+            model=model,
+            optimizer=optimizer,
+            global_step=global_step,
+            save_path=checkpoint_path,
+            metadata={
+                'train_loss': train_loss,
+                'val_loss': val_loss,
+            },
+            upload_to_wandb=False,
+        )
+
+        # Load and verify metadata
+        from safetensors import safe_open
+        with safe_open(f"{checkpoint_path}.safetensors", framework="pt") as f:
+            metadata = f.metadata()
+
+            # Check required FR-011b fields
+            assert "checkpoint_id" in metadata
+            assert "global_step" in metadata
+            assert "model_config" in metadata
+            assert "model_config_hash" in metadata
+            assert "created_at" in metadata
+
+            # Check global step
+            assert int(metadata["global_step"]) == global_step
+
+    def test_load_without_optimizer(self, model, optimizer, temp_checkpoint_dir, small_model_config):
+        """Test loading checkpoint without optimizer (inference mode)."""
+        checkpoint_path = os.path.join(temp_checkpoint_dir, "no_opt")
+
+        # Save checkpoint
+        save_checkpoint(
+            model=model,
+            optimizer=optimizer,
+            global_step=1000,
+            save_path=checkpoint_path,
+            upload_to_wandb=False,
+        )
+
+        # Load without optimizer
+        model2 = RetNetHRMModel(config=small_model_config)
+        loaded_data = load_checkpoint(
+            checkpoint_path=f"{checkpoint_path}.safetensors",
+            model=model2,
+            optimizer=None,  # No optimizer
+            device="cpu",
+        )
+
+        # Should load successfully
+        assert loaded_data['global_step'] == 1000
+
+
+class TestArchitectureMismatch:
+    """Test FR-011b: Architecture mismatch handling."""
+
+    def test_architecture_mismatch_detection(self, temp_checkpoint_dir):
+        """Test that architecture mismatch is detected."""
+        # Create and save model with config1
+        config1 = ModelConfig(
+            d_model=256,
+            n_layers_retnet=4,
+            n_retention_heads=4,
+            vocab_size=1000,
+        )
+        model1 = RetNetHRMModel(config=config1)
+        optimizer1 = torch.optim.AdamW(model1.parameters(), lr=1e-4)
+
+        checkpoint_path = os.path.join(temp_checkpoint_dir, "mismatch_test")
+        save_checkpoint(
+            model=model1,
+            optimizer=optimizer1,
+            global_step=1000,
+            save_path=checkpoint_path,
+            upload_to_wandb=False,
+        )
+
+        # Try to load with different config
+        config2 = ModelConfig(
+            d_model=256,
+            n_layers_retnet=6,  # Different!
+            n_retention_heads=4,
+            vocab_size=1000,
+        )
+        model2 = RetNetHRMModel(config=config2)
+        optimizer2 = torch.optim.AdamW(model2.parameters(), lr=1e-4)
+
+        # Load with strict=False should work with warning
+        # Note: In real implementation, this prompts user, but in tests we skip prompt
+        with pytest.warns(UserWarning, match="Architecture mismatch"):
+            loaded_data = load_checkpoint(
+                checkpoint_path=f"{checkpoint_path}.safetensors",
+                model=model2,
+                optimizer=optimizer2,
+                device="cpu",
+                strict=False,
+                auto_confirm=True,  # Auto-confirm for testing
+            )
+
+    def test_strict_mode_rejects_mismatch(self, temp_checkpoint_dir):
+        """Test strict=True rejects architecture mismatch."""
+        # Create and save model
+        config1 = ModelConfig(d_model=256, n_layers_retnet=4, vocab_size=1000)
+        model1 = RetNetHRMModel(config=config1)
+        optimizer1 = torch.optim.AdamW(model1.parameters(), lr=1e-4)
+
+        checkpoint_path = os.path.join(temp_checkpoint_dir, "strict_test")
+        save_checkpoint(
+            model=model1,
+            optimizer=optimizer1,
+            global_step=1000,
+            save_path=checkpoint_path,
+            upload_to_wandb=False,
+        )
+
+        # Try to load with different config in strict mode
+        config2 = ModelConfig(d_model=256, n_layers_retnet=6, vocab_size=1000)
+        model2 = RetNetHRMModel(config=config2)
+
+        # Should raise error
+        with pytest.raises(ValueError, match="Architecture mismatch"):
+            load_checkpoint(
+                checkpoint_path=f"{checkpoint_path}.safetensors",
+                model=model2,
+                optimizer=None,
+                device="cpu",
+                strict=True,
+            )
+
+
+class TestCheckpointManager:
+    """Test CheckpointManager (FR-011c)."""
+
+    def test_hourly_checkpoint_trigger(self, model, optimizer, temp_checkpoint_dir):
+        """Test FR-011c: Hourly checkpoint saving."""
+        # Create checkpoint manager with short interval for testing
+        manager = CheckpointManager(
+            save_dir=temp_checkpoint_dir,
+            interval_seconds=1,  # 1 second for testing
+            save_on_ctrl_c=False,  # Disable for test
+            model=model,
+            optimizer=optimizer,
+        )
+
+        # Should not save immediately
+        assert not manager.should_save(), "Should not save immediately"
+
+        # Wait for interval
+        time.sleep(1.1)
+
+        # Should save now
+        assert manager.should_save(), "Should save after interval"
+
+        # Save and reset timer
+        checkpoint = manager.save_if_needed(
+            model=model,
+            optimizer=optimizer,
+            global_step=1000,
+        )
+
+        assert checkpoint is not None, "Checkpoint should be created"
+        assert os.path.exists(checkpoint.safetensors_path), \
+            "Checkpoint file should exist"
+
+        # Should not save immediately after saving
+        assert not manager.should_save(), "Should not save immediately after save"
+
+    def test_checkpoint_manager_creates_directory(self, model, optimizer, temp_checkpoint_dir):
+        """Test checkpoint manager creates save directory."""
+        save_dir = os.path.join(temp_checkpoint_dir, "new_dir")
+        assert not os.path.exists(save_dir), "Directory should not exist yet"
+
+        manager = CheckpointManager(
+            save_dir=save_dir,
+            interval_seconds=3600,
+            save_on_ctrl_c=False,
+            model=model,
+            optimizer=optimizer,
+        )
+
+        # Directory should be created
+        assert os.path.exists(save_dir), "Directory should be created"
+
+    def test_manual_checkpoint_save(self, model, optimizer, temp_checkpoint_dir):
+        """Test manual checkpoint saving via manager."""
+        manager = CheckpointManager(
+            save_dir=temp_checkpoint_dir,
+            interval_seconds=3600,  # Long interval
+            save_on_ctrl_c=False,
+            model=model,
+            optimizer=optimizer,
+        )
+
+        # Force save (even if interval not elapsed)
+        checkpoint_path = os.path.join(temp_checkpoint_dir, "manual_checkpoint")
+        checkpoint = manager.save_checkpoint(
+            model=model,
+            optimizer=optimizer,
+            global_step=2000,
+            save_path=checkpoint_path,
+        )
+
+        assert checkpoint is not None
+        assert os.path.exists(f"{checkpoint_path}.safetensors")
+
+
+class TestCheckpointRecovery:
+    """Test checkpoint recovery scenarios (FR-011a)."""
+
+    def test_no_automatic_recovery(self):
+        """Test FR-011a: No automatic recovery, manual resume only."""
+        # This is a documentation test - verify the contract
+        # The load_checkpoint function requires explicit checkpoint_path
+        # There is no auto-discovery or auto-resume functionality
+
+        # Verify load_checkpoint signature requires checkpoint_path
+        import inspect
+        sig = inspect.signature(load_checkpoint)
+        assert 'checkpoint_path' in sig.parameters, \
+            "load_checkpoint must require explicit checkpoint_path (FR-011a)"
+
+    def test_resume_from_interrupted_checkpoint(self, model, optimizer, temp_checkpoint_dir, small_model_config):
+        """Test resuming from Ctrl+C interrupted checkpoint."""
+        # Simulate interrupted checkpoint
+        checkpoint_path = os.path.join(temp_checkpoint_dir, "checkpoint-interrupted")
+        interrupted_step = 3456
+
+        save_checkpoint(
+            model=model,
+            optimizer=optimizer,
+            global_step=interrupted_step,
+            save_path=checkpoint_path,
+            upload_to_wandb=False,
+        )
+
+        # Resume from interrupted checkpoint
+        model2 = RetNetHRMModel(config=small_model_config)
+        optimizer2 = torch.optim.AdamW(model2.parameters(), lr=1e-4)
+
+        loaded_data = load_checkpoint(
+            checkpoint_path=f"{checkpoint_path}.safetensors",
+            model=model2,
+            optimizer=optimizer2,
+            device="cpu",
+        )
+
+        # Should resume from exact step
+        assert loaded_data['global_step'] == interrupted_step
+
+
+class TestCheckpointValidation:
+    """Test checkpoint validation and error handling."""
+
+    def test_missing_checkpoint_file(self, model, temp_checkpoint_dir):
+        """Test loading non-existent checkpoint raises error."""
+        fake_path = os.path.join(temp_checkpoint_dir, "nonexistent.safetensors")
+
+        with pytest.raises(FileNotFoundError):
+            load_checkpoint(
+                checkpoint_path=fake_path,
+                model=model,
+                optimizer=None,
+                device="cpu",
+            )
+
+    def test_corrupted_checkpoint_detection(self, temp_checkpoint_dir):
+        """Test detection of corrupted checkpoint."""
+        # Create fake corrupted file
+        fake_checkpoint = os.path.join(temp_checkpoint_dir, "corrupted.safetensors")
+        with open(fake_checkpoint, 'wb') as f:
+            f.write(b"corrupted data")
+
+        # Should raise error when loading
+        from src.config.model_config import ModelConfig
+        config = ModelConfig(d_model=256, n_layers_retnet=4, vocab_size=1000)
+        model = RetNetHRMModel(config=config)
+
+        with pytest.raises((RuntimeError, ValueError, Exception)):
+            load_checkpoint(
+                checkpoint_path=fake_checkpoint,
+                model=model,
+                optimizer=None,
+                device="cpu",
+            )
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

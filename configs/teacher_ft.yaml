@@ -1,0 +1,123 @@
+# Teacher Finetuning Configuration
+#
+# Purpose: Adapt teacher model to distillation dataset distribution
+# Expected: 4.5x convergence speedup, 15-20% better final loss
+# Time: ~1 epoch (2-4 hours on RTX 5090), 5B tokens
+# VRAM: <=16 GB (uses LoRA rank-64 adapters)
+#
+# Command:
+#   python scripts/finetune_teacher.py --config configs/teacher_ft.yaml
+#   OR: make finetune-teacher
+
+# Model configuration
+teacher_model: "meta-llama/Llama-3.2-1B-Instruct"
+tokenizer_name: "meta-llama/Llama-3.2-1B-Instruct"
+max_seq_length: 1024  # Reduced from 8192 for 4× speedup (truncates sequences)
+use_flash_attention_2: true  # Enable Flash Attention 2 for 20-30% speedup
+
+# LoRA/PEFT configuration
+use_lora: true
+lora_config:
+  r: 32                    # LoRA rank (higher = more capacity, more memory)
+  lora_alpha: 64         # LoRA scaling factor (typically 2x rank)
+  lora_dropout: 0.1
+  target_modules:          # Apply LoRA to all linear layers
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+# Training hyperparameters
+num_train_epochs: 1
+max_steps: 120000          # Explicit cap (longer run than before; ~12h prior run hit 420k steps)
+learning_rate: 5.0e-5   # Keep LR; add warmup/decay for stability
+weight_decay: 0.01
+max_grad_norm: 1.0
+
+# Batch configuration
+per_device_train_batch_size: 2     # Reduced for 8192 seq_len (was 2 for 4096)
+per_device_eval_batch_size: 1      # Match train for 8192 tokens
+gradient_accumulation_steps: 4    # Reduced from 32 for 2× speedup (effective batch = 16)
+physical_batch_size: 2             # Keep consistent with per_device
+
+# Optimizer settings
+optimizer_type: "adamw_8bit"       # Use 8-bit optimizer to save VRAM
+use_8bit_optimizer: true
+adam_beta1: 0.9
+adam_beta2: 0.999
+adam_epsilon: 1.0e-8
+
+# Scheduler settings
+scheduler_type: "cosine"
+warmup_steps: 5000                # ~0.5% of a full-epoch (~300k+) run; enough to avoid early spikes
+warmup_ratio: 0.0
+min_lr: 1.0e-5
+
+# Mixed precision
+use_bf16: true                     # BF16 for training (requires Ampere+ GPU)
+fp16: false                        # Use BF16 instead
+gradient_checkpointing: true      # Disabled for 30-40% speedup (uses more VRAM)
+
+# Data configuration
+train_data_path: "data/distillation_preprocessed_instruct"
+val_data_path: "data/distillation_preprocessed_instruct"
+use_pretokenized_data: true        # Use manifest-based parquet data
+pretokenized_splits: null          # Use all available splits
+num_workers: 0                     # Workers cause swap usage - keep disabled
+validation_split: 0.0001             # Use 1% of data for validation (~3650 samples)
+
+# Validation and early stopping
+eval_strategy: "steps"             # Evaluate every N steps
+eval_steps: 2000                   # Evaluate every 2000 steps (reduced from 500 for less overhead)
+save_strategy: "steps"
+save_steps: 2000                   # Save checkpoint every 2000 steps (must match eval_steps)
+save_total_limit: 3                # Keep only last 3 checkpoints
+
+# Early stopping (optional)
+early_stopping: true
+early_stopping_patience: 3         # Stop if no improvement for 3 evals
+early_stopping_threshold: 0.001    # Minimum improvement to count as better
+
+# Output configuration
+output_dir: "teacher_adapters/llama-1b-corrected"
+save_merged_model: true            # Save both adapters and merged model
+overwrite_output_dir: false        # Don't overwrite existing finetuned teacher
+
+# Logging
+log_interval: 50                   # Log every 50 steps
+logging_steps: 50
+enable_wandb: true
+wandb_project: "teacher-finetuning"
+wandb_run_name: "llama-1b-domain-adapt"
+
+# Evaluation metrics
+eval_perplexity: true              # Compute perplexity on val set
+eval_samples: 150                 # Use 1000 samples for validation
+
+# Misc
+seed: 42
+device: "cuda"
+
+# Monitoring - track improvement vs base teacher
+track_base_metrics: true           # Compare against base teacher
+base_model_perplexity: null        # Will be computed on first eval if null
+improvement_threshold: 0.10        # Target 10% perplexity improvement
+
+# Memory optimization
+gradient_checkpointing_kwargs:
+  use_reentrant: true             # More memory efficient
+
+# DataLoader settings (workers disabled due to swap usage)
+dataloader_num_workers: 0          # Workers cause swap - use RAM disk without workers
+dataloader_pin_memory: true
+dataloader_drop_last: true
+persistent_workers: false          # Not needed without workers
+prefetch_factor: 2                 # Not used when workers=0
+
+# Resume from checkpoint (if interrupted)
+resume_from_checkpoint: null       # Set to checkpoint path to resume

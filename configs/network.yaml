@@ -1,0 +1,72 @@
+# Network Configuration for Remote Teacher
+# Configuration for teacher server and client networking
+
+# Teacher server configuration
+server:
+  # vLLM server settings
+  host: "0.0.0.0"  # Bind address (use specific IP for production)
+  port: 8000
+  model_name: "meta-llama/Llama-3.2-1B"
+
+  # vLLM performance settings
+  tensor_parallel_size: 1  # Number of GPUs for tensor parallelism
+  gpu_memory_utilization: 0.9  # GPU memory utilization (0.0-1.0)
+  max_num_batched_tokens: 8192  # Maximum batched tokens
+  max_num_seqs: 256  # Maximum number of sequences
+
+  # Top-k endpoint settings
+  topk_endpoint: "/v1/topk"
+  default_topk: 128  # Default k for top-k logits
+  enable_int8_quant: true  # Enable int8 quantization
+
+  # Load test targets (M1 gate)
+  target_throughput_tokens_per_sec: 2000  # Minimum throughput
+  max_concurrent_requests: 32
+
+# Client configuration
+client:
+  # Connection settings
+  base_url: "http://localhost:8000"  # Update with actual server address
+  timeout_seconds: 30.0
+
+  # Retry policy
+  retry:
+    max_attempts: 3
+    backoff_strategy: "exponential"  # exponential or linear
+    base_delay_seconds: 1.0
+    max_delay_seconds: 10.0
+    jitter: true  # Add random jitter to backoff
+
+  # Request batching
+  batching:
+    enabled: true
+    max_batch_size: 8  # Maximum sequences per request
+    timeout_ms: 100  # Wait up to 100ms to fill batch
+
+  # Performance targets (M1 gate)
+  target_latency_p50_ms: 20  # p50 latency target
+  target_latency_p95_ms: 50  # p95 latency target
+  target_latency_p99_ms: 100  # p99 latency target
+
+# Network throughput test configuration
+throughput_test:
+  num_sequences: 1000  # Number of test sequences
+  sequence_length: 4096  # Sequence length for testing
+  warmup_sequences: 100  # Warmup before measurement
+  report_percentiles: [0.5, 0.95, 0.99]  # Latency percentiles to report
+
+# Optional: Rolling cache configuration (conditional on M3)
+cache:
+  enabled: false  # Enable only if M3 shows network bottleneck
+  type: "lru"  # LRU eviction policy
+
+  # Storage configuration
+  nvme_path: "cache/nvme"  # NVMe cache path
+  nvme_max_size_gb: 200  # Maximum NVMe cache size
+  hdd_path: "cache/hdd"  # HDD spill path
+  hdd_max_size_gb: 1000  # Maximum HDD cache size
+
+  # Cache behavior
+  hit_tracking: true  # Track cache hit/miss rates
+  log_interval: 100  # Log cache stats every N steps
+  manifest_format: "parquet"  # Cache manifest format

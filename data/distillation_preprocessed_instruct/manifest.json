@@ -1,0 +1,17 @@
+{
+  "tokenizer": "meta-llama/Llama-3.2-1B-Instruct",
+  "max_seq_length": 1024,
+  "shard_size_gb": 2,
+  "input_path": "data/distillation",
+  "output_path": "data/distillation_preprocessed_instruct",
+  "files_processed": 1,
+  "splits": {
+    "openhermes": {
+      "path": "data/distillation_preprocessed_instruct/openhermes",
+      "shards": 2,
+      "sequences": 844704,
+      "samples": 2428641,
+      "tokens": 866206327
+    }
+  }
+}

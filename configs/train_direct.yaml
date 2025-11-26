@@ -1,0 +1,142 @@
+# Configuration for Direct Mode (fastest, requires big GPU)
+#
+# Use case: You have RTX 5090 (32GB) and want fastest training
+# Loads both teacher (1B) + student (500M) in VRAM simultaneously
+#
+# VRAM usage:
+#   - Teacher: ~4GB (BF16)
+#   - Student: ~2GB (BF16)
+#   - Activations: ~4GB
+#   - Total: ~10GB (plenty of headroom on 32GB GPU)
+#
+# Command:
+#   python -m src.distillation.scripts.train --config configs/train_direct.yaml
+
+# Model configuration
+model_variant: "500M"
+max_seq_length: 1024  #
+
+# Training hyperparameters
+max_steps: 600000
+physical_batch_size: 1  
+gradient_accumulation_steps: 8  # Maintain effective batch size of 64
+
+# Optimizer settings
+optimizer_type: "muon"  # "adamw" or "muon" (muon avoids parameter fuzzing)
+learning_rate: 1.0e-4
+weight_decay: 0.08
+max_grad_norm: 0.5  # Increased from 1.0 to accommodate 192 new learnable decay params
+use_8bit_optimizer: true
+
+# Muon-specific settings (only used when optimizer_type: "muon")
+muon_momentum: 0.85  # Reduced from 0.95 for stability (less momentum buildup toward explosions)
+muon_grad_clip: 0.9
+muon_zero_clip_percent: 0.0
+muon_aux_lr_scale: 0.25
+muon_ready_check: true
+muon_clip_threshold: 6.0
+muon_clip_alpha: 0.5
+muon_clip_pairs:
+  - ["q_proj", "k_proj"]
+
+# Note: decay_param_lr_multiplier in optimizer code is set to 10.0
+# This gives retention decay params 10× base LR (vs 1× for standard params)
+# With base LR 1.7e-4, decay params get 1.7e-3 effective LR
+
+# Scheduler settings
+warmup_batches: 16000 
+plateau_batches: 60000  
+scheduler_type: "cosine_warmup"
+cosine_t0: 10000
+cosine_tmult: 2
+min_lr: 2.4e-5
+
+# Mixed precision
+use_bf16: true
+gradient_checkpointing: false  # TEMPORARILY DISABLED: Conflicts with shared decay parameter (needs fix)
+
+# Teacher settings - DIRECT MODE
+teacher_mode: "direct"  # Load teacher in memory
+teacher_device: "cuda"  # Device for teacher model (e.g., "cuda", "cuda:0", "cuda:1")
+                        # Use different device than student for memory isolation
+                        # Reduces 8-10GB memory conflicts on same GPU
+teacher_model: "meta-llama/Llama-3.2-1B-Instruct"
+teacher_adapter_path: "teacher_adapters/llama-1b-corrected/final_adapter"  # Finetuned teacher adapter
+teacher_topk: 512  # Increased from 128 to capture more teacher probability mass (95-98% vs 85-90%)
+teacher_temperature: 2.0
+cache_logits: false  # No caching - pure speed
+
+# Distillation loss
+distill_alpha: 0.5  # CHANGED from 0.2 based on torchtune research (equal CE/KL weighting)
+
+# Reverse KL configuration (default: forward KL)
+# Forward KL (default): KL(teacher || student) - mode-seeking, conservative
+# Reverse KL: KL(student || teacher) - mean-seeking, exploratory
+reverse_kl: false  # Use reverse KL divergence
+reverse_kl_warmup_steps: 0  # Optional warmup before flipping (0 = disabled)
+
+# Parameter schedules (linear ramps from initial to final over warmup_steps)
+# Alpha schedule (hard CE mixing coefficient)
+alpha_warmup_steps: 0  # Steps to ramp alpha (0 = no schedule, use distill_alpha)
+alpha_initial: 0.0  # Starting alpha during warmup (0.0 = pure soft KL)
+alpha_final: 0.2  # Target alpha after warmup
+
+# Temperature schedule
+temperature_warmup_steps: 0  # Steps to ramp temperature (0 = no schedule)
+temperature_initial: 2.5  # Starting temperature during warmup (softer)
+temperature_final: 1.0  # Target temperature after warmup (sharper)
+
+# Data configuration
+train_data_path: "data/distillation_preprocessed_instruct"  # FIX: Use Instruct-tokenized data. The teacher MUST be finetuned on the data you will use for training.
+val_data_path: "data/distillation_preprocessed_instruct"    # Use same for validation
+tokenizer_name: "meta-llama/Llama-3.2-1B-Instruct"
+num_workers: 0  # FIX: Use main process to eliminate multi-worker cache fragmentation (5.9x faster data loading)
+
+# Pretokenized data settings (FIX: Enable pretokenized data loader)
+use_pretokenized_data: true  # Use manifest-based dataset with real text
+pretokenized_splits: null    # Use all 19 datasets (7.5M samples, 3B tokens)
+
+# Checkpointing
+output_dir: "runs/direct_mode"
+save_interval: 5000
+keep_last_n: 8
+max_total_size_gb: 100.0
+
+# Evaluation
+eval_interval: 600  # Reduced from 5000 for more frequent perplexity tracking in WandB
+eval_perplexity: true
+eval_niah: false #Not supported in pytorch for retnet, gotta implement it
+eval_perplexity_samples: 150
+eval_niah_samples: 1
+
+# Telemetry
+log_interval: 30
+enable_wandb: true
+wandb_project: "distillation-llama-retnet"
+wandb_run_name: "direct-mode"
+
+# Async teacher (disabled by default for direct mode - causes 8-10GB overhead on same GPU)
+async_teacher: false  # Auto-disabled when teacher/student on same device
+force_async_teacher: false  # Set to true to override auto-disable
+
+# Misc
+seed: 42
+device: "cuda"
+
+# Saddle point detection and escape
+saddle_escape:
+  enabled: true                          # Enable detection
+
+  # Detection - TUNED based on 10K+ step analysis
+  grad_norm_threshold: 0.65              # Was 0.55 (88th percentile, achievable)
+  loss_improvement_threshold: 0.001      # Was 0.0005 (0.1% vs 0.05%, less noisy)
+  min_loss_threshold: 100.0              # Unchanged
+  patience_steps: 50                     # Was 150 (realistic based on data)
+
+  # Intervention - ENABLE interventions!
+  interventions_enabled: true            # Was false - CRITICAL FIX!
+  cooldown_steps: 200                    # Was 250 (faster response)
+
+  # Logging
+  log_to_wandb: true
+  create_wandb_alerts: false             # No spam

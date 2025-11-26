@@ -1,0 +1,102 @@
+# Stage 1 Knowledge Distillation Configuration (v1.0)
+# User Story 1: Core Knowledge Transfer at 4k context
+
+config_version: "1.0"
+
+# Training hyperparameters
+training:
+  num_steps: 60000  # Target 60k-80k steps
+  eval_interval: 5000  # Evaluate every 5k steps
+  save_interval: 5000  # Save checkpoint every 5k steps
+
+  # Gradient accumulation (effective batch = physical_batch * accumulate_steps)
+  physical_batch_size: 1  # Per-device batch size
+  gradient_accumulation_steps: 256
+  effective_batch_size: 256  # Must equal physical_batch_size * gradient_accumulation_steps
+
+  # Mixed precision
+  precision: "bf16"  # BF16 mixed precision
+  gradient_clip_norm: 1.0
+
+  # Context length (v1: 4k only)
+  max_seq_length: 4096
+
+# Teacher server configuration
+teacher:
+  endpoint_url: "http://localhost:8000/v1/topk"  # Update with actual server address
+  topk: 128  # Number of top-k logits to fetch
+  return_dtype: "int8"  # Quantized int8 for network efficiency
+
+  # Client retry configuration
+  max_retries: 3
+  backoff_seconds: [1, 2, 4]
+  request_timeout: 30.0
+  batch_size: 1  # Request batching size
+
+# Loss configuration
+loss:
+  type: "sparse_kl"
+  temperature: 2.0  # Temperature for distillation
+  alpha: 0.2  # Hard CE mixing coefficient (0.2 * CE_hard + 0.8 * KL_soft)
+  epsilon: 1.0e-8  # Numerical stability epsilon
+
+# Optimizer configuration
+optimizer:
+  type: "adamw8bit"  # bitsandbytes AdamW8bit
+  lr: 3.0e-4  # Learning rate
+  betas: [0.9, 0.95]
+  weight_decay: 0.1
+  eps: 1.0e-8
+
+# Learning rate scheduler
+scheduler:
+  type: "cosine_warmup"
+  warmup_batches: 200  # Warmup over 200 batches (~1 minute)
+  cosine_t0: 10000  # CosineAnnealingWarmRestarts T_0
+  cosine_tmult: 2  # T_mult for restarts
+  min_lr: 3.0e-5  # Minimum LR
+
+# Data configuration
+data:
+  train_path: "data/train"  # Path to training data (JSONL or text files)
+  val_path: "data/val"  # Path to validation data
+  tokenizer_name: "meta-llama/Llama-3.2-1B"  # Llama tokenizer
+  num_workers: 4
+
+# Checkpoint configuration
+checkpointing:
+  output_dir: "runs/stage1_kd"
+  keep_last_n: 3  # Keep last 3 checkpoints
+  keep_best: true  # Keep best checkpoint by validation perplexity
+  max_total_size_gb: 100  # Maximum total checkpoint size
+
+# Telemetry configuration
+telemetry:
+  log_interval: 10  # Log metrics every 10 steps
+  metrics: ["loss", "lr", "grad_norm", "tokens_per_sec", "vram_gb"]
+  wandb_enabled: false  # Set to true to enable wandb logging
+  wandb_project: "retnet-distillation"
+  wandb_run_name: "stage1_kd_v1"
+
+# Evaluation configuration
+evaluation:
+  metrics: ["perplexity", "niah_4k"]
+
+  # NIAH (Needle-in-a-Haystack) configuration
+  niah:
+    context_length: 4096
+    num_samples: 100
+    target_accuracy: 0.95  # Quality gate: >=95%
+
+  # Perplexity configuration
+  perplexity:
+    num_samples: 1000
+    target_gap: 1.2  # Quality gate: <= teacher_ppl * 1.2
+
+# Resource limits
+resources:
+  max_vram_gb: 30  # Maximum VRAM usage (quality gate)
+  target_tokens_per_sec: 1000  # Minimum throughput target
+
+# Model configuration (reference to model_*.yaml)
+model_config: "configs/model_350m.yaml"  # Start with 350M, upgrade to 500M if M3 passes

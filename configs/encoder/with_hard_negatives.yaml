@@ -1,0 +1,52 @@
+# Configuration for DualEncoder training with hard negative mining
+# T054: Advanced encoder training with FAISS hard negatives
+
+model:
+  vocab_size: 50257        # GPT-2 tokenizer vocab size
+  d_model: 768             # Embedding dimension
+  n_layers: 6              # Number of Transformer layers
+  n_heads: 12              # Number of attention heads
+  d_ff: 3072               # Feed-forward dimension (4 * d_model)
+  dropout: 0.1             # Dropout rate
+  max_seq_len: 512         # Maximum sequence length for code chunks
+
+training:
+  # Optimization
+  batch_size: 64           # Larger batch size for more in-batch negatives
+  learning_rate: 5e-5      # Lower LR for fine-tuning with hard negatives
+  weight_decay: 0.01       # Weight decay for regularization
+  warmup_steps: 500        # Shorter warmup for fine-tuning
+  max_steps: 20000         # Fewer steps needed with hard negatives
+
+  # Contrastive loss
+  temperature: 0.05        # Lower temperature for harder task
+
+  # Hard negative mining (ENABLED)
+  use_hard_negatives: true        # Enable hard negative mining from FAISS
+  hard_neg_interval: 2000         # More frequent updates for harder negatives
+
+  # Logging and evaluation
+  log_interval: 100               # Steps between metric logging
+  eval_interval: 500              # More frequent validation to monitor MRR
+  checkpoint_dir: checkpoints/encoder
+
+  # Wandb configuration
+  wandb_project: retnet-hrm-encoder
+  wandb_entity: null              # Set to your wandb team/user
+  wandb_run_name: encoder-hard-negatives
+  wandb_tags:
+    - dual-encoder
+    - contrastive
+    - hard-negatives
+
+  # Data paths
+  train_data_path: data/code_pairs/train.jsonl
+  val_data_path: data/code_pairs/val.jsonl
+  num_workers: 4
+
+  # Hardware
+  precision: bf16                 # "bf16" or "fp32"
+
+# Usage:
+# 1. Train baseline model first: python src/cli/train_encoder.py --config configs/encoder/baseline.yaml
+# 2. Fine-tune with hard negatives: python src/cli/train_encoder.py --config configs/encoder/with_hard_negatives.yaml --resume-from checkpoints/encoder/encoder-best-mrr.pt

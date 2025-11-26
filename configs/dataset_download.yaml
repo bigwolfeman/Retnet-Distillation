@@ -1,0 +1,251 @@
+# Knowledge Distillation Dataset Download Configuration
+#
+# This configuration defines the dataset mix for knowledge distillation training.
+# Adjust ratios and sample counts to customize your training data mix.
+
+# Overall Configuration
+total_samples: 100000  # Total number of samples to download
+output_dir: "/mnt/BigAssDrive/00projects/00DeepNet/000Distill-Titan-Retnet-HRM/data/distillation"
+
+# Category Ratios (must sum to 1.0)
+category_ratios:
+  instruction_chat: 0.35  # 35% - General instruction & chat
+  code: 0.30              # 30% - Code generation and understanding
+  math_reasoning: 0.25    # 25% - Math and logic problems
+  factual_qa: 0.10        # 10% - Factual question answering
+
+# Dataset Configurations
+# Each dataset can be enabled/disabled and have its allocation within category adjusted
+
+datasets:
+  # ===================================================================
+  # INSTRUCTION & CHAT (35%)
+  # ===================================================================
+
+  openhermes:
+    enabled: true
+    category: instruction_chat
+    allocation: 0.40  # 40% of instruction_chat category
+    hf_path: "teknium/OpenHermes-2.5"
+    subset: null
+    split: "train"
+    license: "apache-2.0"
+    streaming: true
+    notes: |
+      High-quality multi-turn conversations. Filter by prompt length:
+      - First 50% of samples: keep prompts < 256 tokens
+      - Second 50%: allow longer prompts
+
+  ultrachat:
+    enabled: true
+    category: instruction_chat
+    allocation: 0.40  # 40% of instruction_chat category
+    hf_path: "HuggingFaceH4/ultrachat_200k"
+    subset: null
+    split: "train_sft"
+    license: "mit"
+    streaming: true
+    notes: |
+      Cleaned multi-turn conversations from UltraChat.
+      Apply same prompt length filtering as OpenHermes.
+
+  open_orca:
+    enabled: true
+    category: instruction_chat
+    allocation: 0.20  # 20% of instruction_chat category
+    hf_path: "Open-Orca/OpenOrca"
+    subset: null
+    split: "train"
+    license: "mit"
+    streaming: true
+    notes: |
+      System-prompted instruction following.
+      Check license for each subset before use.
+
+  # ===================================================================
+  # CODE (30%)
+  # ===================================================================
+
+  the_stack_python:
+    enabled: true
+    category: code
+    allocation: 0.50  # 50% of code category
+    hf_path: "bigcode/the-stack-v2"
+    subset: "python"
+    split: "train"
+    license: "various-permissive"
+    streaming: true
+    filters:
+      allowed_licenses:
+        - "mit"
+        - "apache-2.0"
+        - "bsd-3-clause"
+        - "bsd-2-clause"
+        - "mpl-2.0"
+      min_length: 100
+      max_length: 100000
+    notes: |
+      Python code from The Stack v2.
+      Filter by permissive licenses only.
+      Apply deduplication.
+
+  the_stack_javascript:
+    enabled: true
+    category: code
+    allocation: 0.15  # 15% of code category
+    hf_path: "bigcode/the-stack-v2"
+    subset: "javascript"
+    split: "train"
+    license: "various-permissive"
+    streaming: true
+    filters:
+      allowed_licenses:
+        - "mit"
+        - "apache-2.0"
+        - "bsd-3-clause"
+        - "bsd-2-clause"
+      min_length: 100
+      max_length: 100000
+
+  starcoder:
+    enabled: true
+    category: code
+    allocation: 0.20  # 20% of code category
+    hf_path: "bigcode/starcoderdata"
+    subset: null
+    split: "train"
+    license: "apache-2.0"
+    streaming: true
+    filters:
+      min_length: 100
+      max_length: 100000
+    notes: |
+      StarCoder training data.
+      Includes unit tests and documentation.
+
+  code_contests:
+    enabled: true
+    category: code
+    allocation: 0.15  # 15% of code category
+    hf_path: "deepmind/code_contests"
+    subset: null
+    split: "train"
+    license: "apache-2.0"
+    streaming: false
+    notes: |
+      Programming competition problems with test cases.
+      Excellent for code reasoning tasks.
+
+  # ===================================================================
+  # MATH & REASONING (25%)
+  # ===================================================================
+
+  gsm8k:
+    enabled: true
+    category: math_reasoning
+    allocation: 0.30  # 30% of math category
+    hf_path: "gsm8k"
+    subset: "main"
+    split: "train"
+    license: "mit"
+    streaming: false
+    notes: |
+      Grade school math word problems.
+      Teacher should produce short scratchpads.
+      Mask most rationale tokens from loss.
+
+  math:
+    enabled: true
+    category: math_reasoning
+    allocation: 0.30  # 30% of math category
+    hf_path: "hendrycks/competition_math"
+    subset: null
+    split: "train"
+    license: "mit"
+    streaming: false
+    notes: |
+      Competition-level math problems.
+      Include level and type metadata.
+
+  numina_cot:
+    enabled: true
+    category: math_reasoning
+    allocation: 0.40  # 40% of math category
+    hf_path: "AI-MO/NuminaMath-CoT"
+    subset: null
+    split: "train"
+    license: "apache-2.0"
+    streaming: true
+    notes: |
+      Math problems with chain-of-thought reasoning.
+      Use teacher-generated scratchpads.
+      Mask intermediate reasoning from student loss.
+
+  # ===================================================================
+  # FACTUAL QA (10%)
+  # ===================================================================
+
+  natural_questions:
+    enabled: true
+    category: factual_qa
+    allocation: 0.50  # 50% of QA category
+    hf_path: "google-research-datasets/natural_questions"
+    subset: null
+    split: "train"
+    license: "apache-2.0"
+    streaming: true
+    notes: |
+      Google's Natural Questions dataset.
+      Convert to robust instruction format.
+      Teacher can add intermediate notes.
+
+  hotpotqa:
+    enabled: true
+    category: factual_qa
+    allocation: 0.50  # 50% of QA category
+    hf_path: "hotpot_qa"
+    subset: "distractor"
+    split: "train"
+    license: "cc-by-sa-4.0"
+    streaming: false
+    notes: |
+      Multi-hop question answering.
+      Requires reasoning over multiple facts.
+      Train primarily on final answers.
+
+# Preprocessing Options
+preprocessing:
+  # Deduplication
+  deduplicate: true
+  dedup_method: "md5_hash"  # or "minhash" for fuzzy dedup
+
+  # Length filters (in characters)
+  min_text_length: 50
+  max_text_length: 500000
+
+  # Prompt length curriculum (for chat/instruction)
+  prompt_length_curriculum:
+    enabled: true
+    phase1_max_tokens: 256  # First 50% of samples
+    phase2_max_tokens: null # Second 50%: no limit
+
+  # Quality filters
+  min_words: 10
+  max_consecutive_newlines: 5
+
+# Teacher Logit Generation Settings
+# (For use when generating cached logits)
+teacher_config:
+  enabled: false  # Set to true when generating logits
+  model_path: "meta-llama/Llama-3.2-3B-Instruct"
+  batch_size: 8
+  max_seq_length: 2048
+  temperature: 1.0
+  save_format: "parquet"
+  shard_size_mb: 2048  # 2GB per shard
+
+# Logging
+logging:
+  level: "INFO"
+  save_stats: true
+  stats_interval: 1000  # Save stats every N samples

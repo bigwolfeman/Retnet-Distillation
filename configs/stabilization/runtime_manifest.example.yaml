@@ -1,0 +1,34 @@
+schemaVersion: "1.0.0"
+environment:
+  id: titan-hrm-dev
+  label: Titan-HRM Dev GPU Node
+  description: Stable CUDA 12.1 environment for Titan-HRM validation.
+mandatoryDependencies:
+  - name: torch
+    minVersion: "2.0.0"
+    detection:
+      command: "python -c 'import torch, json; print(json.dumps({\"version\": torch.__version__}))'"
+    remediation: "pip install torch==2.1.2 --extra-index-url https://download.pytorch.org/whl/cu121"
+  - name: torchscale-retnet
+    minVersion: "0.2.0"
+    detection:
+      command: "python -c 'import torchscale, json; print(json.dumps({\"version\": torchscale.__version__}))'"
+    remediation: "pip install git+https://github.com/facebookresearch/torchscale@retnet-stable"
+  - name: titans-memory-utils
+    minVersion: "1.0.0"
+    detection:
+      command: "python -m titans_memory_utils.version"
+    remediation: "pip install titans-memory-utils==1.0.0"
+optionalModules:
+  - name: xformers
+    performanceImpact: "Improves attention throughput by up to 25% on A100 GPUs."
+    detection:
+      command: "python -c 'import xformers'"
+  - name: triton-fused-kernels
+    performanceImpact: "Reduces proposal latency by ~12% via fused softmax kernels."
+    detection:
+      command: "python -c 'import triton'"
+    acknowledgementRequired: true
+globalRemediation:
+  - "Refer to docs/stabilization/runtime_readiness.md for remediation workflow."
+  - "Escalate missing mandatory dependencies to the ML platform team if pip install fails."

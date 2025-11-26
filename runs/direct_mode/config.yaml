@@ -1,0 +1,188 @@
+model:
+  variant: 500M
+  config:
+    path: null
+use:
+  act: false
+  8bit:
+    optimizer: true
+  bf16: true
+  streaming:
+    loader: false
+  prefetch:
+    loader: true
+  packed:
+    sequences: false
+  pretokenized:
+    data: true
+act:
+  max:
+    steps: 10
+  epsilon: 0.01
+  ponder:
+    penalty: 0.01
+  use:
+    geometric:
+      prior: false
+  prior:
+    lambda: 0.5
+max:
+  steps: 20000
+  seq:
+    length: 1024
+  grad:
+    norm: 0.5
+  total:
+    size:
+      gb: 100.0
+  vram:
+    gb: 30.0
+physical:
+  batch:
+    size: 1
+gradient:
+  accumulation:
+    steps: 8
+  checkpointing: false
+optimizer:
+  type: muon
+learning:
+  rate: 0.0001
+weight:
+  decay: 0.08
+muon:
+  momentum: 0.85
+  grad:
+    clip: 0.9
+  zero:
+    clip:
+      percent: 0.0
+  aux:
+    lr:
+      scale: 0.25
+  ready:
+    check: true
+  clip:
+    threshold: 6.0
+    alpha: 0.5
+    pairs:
+    - - q_proj
+      - k_proj
+warmup:
+  batches: 16000
+plateau:
+  batches: 60000
+scheduler:
+  type: cosine_warmup
+cosine:
+  t0: 10000
+  tmult: 2
+min:
+  lr: 2.4e-05
+teacher:
+  mode: direct
+  device: cuda
+  url: http://192.168.0.71:8080
+  model: meta-llama/Llama-3.2-1B-Instruct
+  adapter:
+    path: teacher_adapters/llama-1b-corrected/final_adapter
+  topk: 512
+  temperature: 2.0
+  timeout: 30.0
+  max:
+    retries: 3
+  prefetch:
+    batches: 1
+cache:
+  logits: false
+  dir: /mnt/BigAssDrive/00projects/00DeepNet/00Retnet-Distillation-Hackathon/data/teacher_cache
+distill:
+  alpha: 0.5
+reverse:
+  kl:
+    warmup:
+      steps: 0
+alpha:
+  warmup:
+    steps: 0
+  initial: 0.0
+  final: 0.2
+temperature:
+  warmup:
+    steps: 0
+  initial: 2.5
+  final: 1.0
+train:
+  data:
+    path: /mnt/BigAssDrive/00projects/00DeepNet/00Retnet-Distillation-Hackathon/data/distillation_preprocessed_instruct
+val:
+  data:
+    path: /mnt/BigAssDrive/00projects/00DeepNet/00Retnet-Distillation-Hackathon/data/distillation_preprocessed_instruct
+tokenizer:
+  name: meta-llama/Llama-3.2-1B-Instruct
+num:
+  workers: 0
+ram:
+  cache:
+    mb: 0
+streaming:
+  prefetch:
+    factor: 2
+  num:
+    workers: 2
+pack:
+  max:
+    length: 4000
+pretokenized:
+  splits: null
+async:
+  teacher: false
+force:
+  async:
+    teacher: false
+output:
+  dir: /mnt/BigAssDrive/00projects/00DeepNet/00Retnet-Distillation-Hackathon/runs/direct_mode
+checkpoint:
+  dir: /mnt/BigAssDrive/00projects/00DeepNet/00Retnet-Distillation-Hackathon/runs/stage1_kd/checkpoints
+save:
+  interval: 5000
+keep:
+  last:
+    n: 8
+resume:
+  from: null
+eval:
+  interval: 600
+  perplexity:
+    samples: 150
+  niah:
+    samples: 1
+log:
+  interval: 30
+  memory:
+    debug: false
+  sample:
+    debug: false
+enable:
+  wandb: true
+wandb:
+  project: distillation-llama-retnet
+  run:
+    name: direct-mode
+  offline: false
+seed: 42
+device: cuda
+saddle:
+  escape:
+    enabled: true
+    grad_norm_threshold: 0.55
+    loss_improvement_threshold: 0.0005
+    min_loss_threshold: 100.0
+    patience_steps: 150
+    interventions_enabled: false
+    cooldown_steps: 250
+    log_to_wandb: true
+    create_wandb_alerts: false
+pretrain:
+  ce:
+    only: true

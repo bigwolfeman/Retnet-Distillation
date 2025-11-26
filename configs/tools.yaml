@@ -1,0 +1,40 @@
+# Tool backend configuration per plan.md (T088)
+# JSON schemas and budgets for calc, cas, and tester tools
+
+# Tool budgets (max average calls per problem)
+budgets:
+  calc: 0.6  # Calc backend: ≤60% of problems can use calc
+  cas: 0.3  # CAS backend: ≤30% of problems can use CAS
+  tester: 1.0  # Tester backend: Up to 1 call per coding problem
+
+# Resource limits for tester backend
+tester:
+  cpu_time_limit_seconds: 5  # Max CPU time per test execution
+  memory_limit_gb: 24  # Max RAM per test execution
+  timeout_wall_clock_seconds: 6  # Wall-clock timeout (slightly higher)
+  disable_imports: true  # Disable import statements via PYTHONPATH=''
+  use_ast_validation: true  # Validate code with ast.parse() before execution
+
+# Schema validation settings
+validation:
+  reject_non_ascii_control: true  # Reject non-ASCII control characters per FR-044
+  strict_schema_validation: true  # Strictly validate against contracts/*.json
+  max_json_depth: 10  # Max nesting depth for JSON
+  max_json_size_bytes: 10240  # Max JSON size (10 KB)
+
+# Tool-specific settings
+calc:
+  use_decimal_module: true  # Use Python decimal for exact arithmetic
+  max_expression_length: 1000  # Max length of arithmetic expression
+  allowed_operations: ['+', '-', '*', '/', '(', ')', ' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.']
+
+cas:
+  use_sympy: true  # Use SymPy for symbolic computation
+  allowed_operations: ['reduce', 'factor', 'gcd', 'expand', 'simplify']
+  max_expression_complexity: 100  # Max number of terms/factors
+
+# Logging
+logging:
+  log_tool_calls: true  # Log all tool call/return pairs
+  log_validation_failures: true  # Log schema validation failures
+  log_execution_time: true  # Log execution time per tool call

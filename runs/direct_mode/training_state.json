@@ -1,0 +1,9 @@
+{
+  "global_step": 195,
+  "epoch": 0,
+  "best_val_loss": Infinity,
+  "best_checkpoint_path": null,
+  "training_start_time": 1764124420.9162865,
+  "last_eval_step": 0,
+  "last_save_step": 0
+}

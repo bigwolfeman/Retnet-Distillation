@@ -1,0 +1,111 @@
+# Default Configuration for RetNet-HRM
+# Based on hyperparameters from research.md section 9 (32GB target)
+
+model:
+  d_model: 2816
+  n_layers_retnet: 28
+  mlp_mult: 4
+  retention_heads: 12
+  n_layers_attention: 3        # Top attention band layers
+  attention_window: 2048
+  use_rope_in_attention: true
+  vocab_size: 100352
+  dropout: 0.0
+
+  # Context lengths
+  max_seq_len_train: 32768
+  max_seq_len_infer: 65536
+
+  # HRM / Adaptive Computation
+  hrm_t_max: 6
+  hrm_epsilon: 0.001
+  hrm_ponder_tau: 0.002
+  hrm_halting_bias_init: -1.0
+
+  # Router
+  router_budget_B: 24
+  router_landmark_len_L: 6
+  router_gumbel_temp: 0.7
+  router_lambda_sparsity: 0.0002
+  router_lambda_entropy: 0.001
+
+  # Retrieval
+  retrieval_topk: 32                  # Chunks retrieved per query
+  retrieval_chunk_bytes: 2048         # Bytes before compression
+  retrieval_landmark_tokens: 6        # Tokens per compressed chunk
+
+training:
+  # Optimization
+  optimizer: adamw
+  learning_rate: 0.00025
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1e-8
+
+  # Learning rate schedule
+  warmup_steps: 3000
+  lr_schedule: cosine
+
+  # Gradient
+  grad_clip_norm: 1.0
+  grad_accumulation_steps: 4
+
+  # Batch
+  batch_size: 2                       # Per-device (adjust for GPU memory)
+  seq_len: 32768
+
+  # Duration
+  max_steps: 100000
+  max_epochs: null
+
+  # Checkpointing (FR-011c)
+  checkpoint_interval_seconds: 3600   # 1 hour
+  checkpoint_on_ctrl_c: true
+
+  # Evaluation
+  eval_interval_steps: 1000
+  eval_steps: 100
+
+  # Logging (FR-016)
+  log_interval_steps: 100
+  log_gradients: true
+  log_distributions_interval: 1000
+
+  # Wandb
+  wandb_project: retnet-hrm
+  wandb_entity: null
+  wandb_run_name: null
+  wandb_tags: []
+
+  # Hardware
+  device: cuda
+  precision: bf16
+  use_activation_checkpointing: true
+
+  # Data
+  dataset_name: gsm8k
+  dataset_split: train
+  num_workers: 4
+
+retrieval:
+  # Dual encoder configuration
+  encoder_dim: 768
+  encoder_layers: 6
+
+  # FAISS configuration (global index)
+  faiss:
+    index_type: "IVF1024,PQ64"
+    nprobe: 32
+    train_size_min: 30000           # Minimum examples for IVF training
+
+  # HNSW configuration (workspace index)
+  hnsw:
+    M: 32                            # Links per node
+    efSearch: 200                    # Search quality
+    efConstruction: 200              # Build quality
+
+  # kNN-LM (optional logit mixing)
+  knn_lm:
+    enable: false                    # Disabled initially (research.md)
+    lambda: 0.2                      # Mixing weight (if enabled)

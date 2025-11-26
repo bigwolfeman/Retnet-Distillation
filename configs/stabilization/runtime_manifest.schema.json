@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://titan-hrm.internal/schemas/runtime-manifest.json",
+  "title": "Titan-HRM Runtime Readiness Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "environment",
+    "mandatoryDependencies"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the manifest schema."
+    },
+    "environment": {
+      "$ref": "#/$defs/environment"
+    },
+    "mandatoryDependencies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/mandatoryDependency"
+      }
+    },
+    "optionalModules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/optionalModule"
+      }
+    },
+    "globalRemediation": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Ordered list of remediation actions that apply to the environment as a whole."
+    }
+  },
+  "$defs": {
+    "environment": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique identifier for the environment (host, cluster, or workspace)."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human readable name for the environment."
+        },
+        "description": {
+          "type": "string",
+          "description": "Additional context about the environment configuration."
+        }
+      },
+      "additionalProperties": false
+    },
+    "mandatoryDependency": {
+      "type": "object",
+      "required": [
+        "name",
+        "minVersion",
+        "detection"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minVersion": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Pinned minimum version that must be installed."
+        },
+        "detection": {
+          "type": "object",
+          "required": [
+            "command"
+          ],
+          "properties": {
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "description": "CLI command or Python module import used to detect the dependency."
+            },
+            "env": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Optional environment variables to set while running the detection command."
+            }
+          },
+          "additionalProperties": false
+        },
+        "remediation": {
+          "type": "string",
+          "description": "Operator guidance if the dependency is missing or out of date."
+        }
+      },
+      "additionalProperties": false
+    },
+    "optionalModule": {
+      "type": "object",
+      "required": [
+        "name",
+        "performanceImpact"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "performanceImpact": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Summary of how the module affects latency, throughput, or memory."
+        },
+        "detection": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "minLength": 1
+            },
+            "env": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "acknowledgementRequired": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

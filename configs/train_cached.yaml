@@ -1,0 +1,90 @@
+# Configuration for Cached Mode (2-phase approach)
+#
+# Use case: Limited VRAM, want to separate caching and training
+# Phase 1: Cache all logits (use cache_teacher_logits.py)
+# Phase 2: Train with cached logits (this config)
+#
+# Benefits:
+#   - Low VRAM usage (only student model needed)
+#   - Can train multiple students from same cache
+#   - No network dependency
+#   - Reproducible (same logits every run)
+#
+# Prerequisites:
+#   1. Generate cache first:
+#      python scripts/cache_teacher_logits.py \
+#        --data-path data/train/ \
+#        --output-dir data/teacher_cache/ \
+#        --teacher-url http://server:8080
+#
+#   2. Then train:
+#      python -m src.distillation.scripts.train --config configs/train_cached.yaml
+#
+# Command:
+#   python -m src.distillation.scripts.train --config configs/train_cached.yaml
+
+# Model configuration
+model_variant: "500M"
+max_seq_length: 4096
+
+# Training hyperparameters
+max_steps: 60000
+physical_batch_size: 1
+gradient_accumulation_steps: 256
+
+# Optimizer settings
+learning_rate: 3.0e-4
+weight_decay: 0.1
+max_grad_norm: 1.0
+use_8bit_optimizer: true
+
+# Scheduler settings
+warmup_batches: 200  # Warmup over 200 batches (~1 minute)
+scheduler_type: "cosine_warmup"
+cosine_t0: 10000
+cosine_tmult: 2
+min_lr: 3.0e-5
+
+# Mixed precision
+use_bf16: true
+gradient_checkpointing: false
+
+# Teacher settings - CACHED MODE
+teacher_mode: "cached"  # Read from pre-cached logits
+cache_dir: "data/teacher_cache/"  # Where cache is located
+teacher_topk: 128  # Must match cache topk
+teacher_temperature: 2.0  # Applied in loss function
+
+# NOTE: teacher_url and teacher_model not needed in cached mode
+
+# Distillation loss
+distill_alpha: 0.2
+
+# Data configuration
+train_data_path: "data/train"
+val_data_path: "data/val"
+tokenizer_name: "meta-llama/Llama-3.2-1B"
+num_workers: 4
+
+# Checkpointing
+output_dir: "runs/cached_mode"
+save_interval: 5000
+keep_last_n: 3
+max_total_size_gb: 100.0
+
+# Evaluation
+eval_interval: 5000
+eval_perplexity: true
+eval_niah: true
+eval_perplexity_samples: 1000
+eval_niah_samples: 100
+
+# Telemetry
+log_interval: 10
+enable_wandb: true
+wandb_project: "distillation-llama-retnet"
+wandb_run_name: "cached-mode"
+
+# Misc
+seed: 42
+device: "cuda"

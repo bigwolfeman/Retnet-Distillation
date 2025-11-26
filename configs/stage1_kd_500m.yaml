@@ -1,0 +1,118 @@
+# Stage 1 Knowledge Distillation - 500M Student Model
+# Configuration for distilling Llama-3.2-1B teacher to RetNet 500M student
+
+config_version: "1.0.0"
+variant_name: "stage1_kd_500m"
+
+# Model configuration
+model_variant: "500M"
+model_config_path: "configs/model_500m.yaml"
+
+# Training hyperparameters
+max_steps: 60000  # Target: 60k-80k steps
+physical_batch_size: 1  # Per-device batch size (for 32GB VRAM)
+gradient_accumulation_steps: 256  # Effective batch = 256
+max_seq_length: 4096  # 4k context for v1
+
+# Optimizer settings
+learning_rate: 2.5e-4  # Slightly lower LR for larger model
+weight_decay: 0.1  # Weight decay coefficient
+max_grad_norm: 1.0  # Gradient clipping
+use_8bit_optimizer: true  # Use bitsandbytes AdamW8bit
+
+# Scheduler settings
+warmup_batches: 200  # Warmup over 200 batches (~1 minute)
+scheduler_type: "cosine_warmup"
+cosine_t0: 10000  # First cycle length
+cosine_tmult: 2  # Cycle multiplier
+min_lr: 2.5e-5  # Minimum learning rate
+
+# Mixed precision
+use_bf16: true  # BF16 mixed precision
+gradient_checkpointing: false  # May need to enable if VRAM is tight
+
+# Teacher settings
+teacher_device: "cuda"  # Device for teacher model (e.g., "cuda", "cuda:0", "cuda:1")
+                        # Use different device than student for memory isolation when using DirectTeacherClient
+                        # Reduces 8-10GB memory conflicts on same GPU
+teacher_url: "http://192.168.0.71:8080"  # vLLM server URL
+teacher_model: "meta-llama/Llama-3.2-1B-Instruct"
+teacher_topk: 128  # Number of top-k logits
+teacher_temperature: 2.0  # Softmax temperature
+teacher_timeout: 30.0  # Request timeout (seconds)
+teacher_max_retries: 3  # Max retry attempts
+
+# Distillation loss settings
+distill_alpha: 0.2  # Hard CE mixing (0.2 * CE_hard + 0.8 * KL_soft)
+
+# Data configuration
+train_data_path: "data/train"  # Training data directory
+val_data_path: "data/val"  # Validation data directory
+tokenizer_name: "meta-llama/Llama-3.2-1B"  # Llama tokenizer
+num_workers: 4  # Data loader workers
+
+# Checkpointing
+output_dir: "runs/stage1_kd_500m"  # Output directory
+checkpoint_dir: "runs/stage1_kd_500m/checkpoints"  # Checkpoint directory
+save_interval: 5000  # Save every 5k steps
+keep_last_n: 3  # Keep last 3 checkpoints
+max_total_size_gb: 100.0  # Maximum checkpoint storage (GB)
+resume_from: null  # Path to resume checkpoint (null = start fresh)
+
+# Evaluation
+eval_interval: 5000  # Evaluate every 5k steps
+eval_perplexity: true  # Run perplexity evaluation
+eval_niah: true  # Run NIAH evaluation
+eval_perplexity_samples: 1000  # Number of samples for perplexity
+eval_niah_samples: 100  # Number of samples for NIAH
+
+# Telemetry
+log_interval: 10  # Log every 10 steps
+enable_wandb: false  # Enable wandb logging
+wandb_project: "retnet-distillation"  # Wandb project
+wandb_run_name: "stage1_kd_500m"  # Wandb run name
+wandb_offline: false  # Wandb offline mode
+
+# Resource limits
+max_vram_gb: 30.0  # Target VRAM usage (may be tight for 500M)
+
+# Misc
+seed: 42  # Random seed
+device: "cuda"  # Device (cuda or cpu)
+
+# Quality gates (for reference, not enforced by config)
+quality_gates:
+  target_perplexity_gap: 1.15  # <= teacher_ppl * 1.15 (tighter for larger model)
+  target_niah_accuracy: 0.96  # >= 96% (better for larger model)
+  max_vram_gb: 30.0  # <= 30GB
+  min_tokens_per_sec: 800  # >= 800 tokens/sec (slower due to larger model)
+
+# Training schedule (for reference)
+schedule:
+  warmup_phase:
+    steps: "0-1000"
+    description: "Linear warmup from 0 to base LR"
+
+  cycle_1:
+    steps: "1000-11000"
+    description: "First cosine cycle (10k steps)"
+
+  cycle_2:
+    steps: "11000-31000"
+    description: "Second cosine cycle (20k steps)"
+
+  cycle_3:
+    steps: "31000-71000"
+    description: "Third cosine cycle (40k steps)"
+
+  expected_completion:
+    steps: "60000-80000"
+    description: "Expected completion range"
+
+# Notes for 500M variant
+notes:
+  - "500M model is larger and may require gradient checkpointing if VRAM exceeds 30GB"
+  - "Slightly lower learning rate (2.5e-4) for stability"
+  - "Monitor VRAM usage carefully; enable gradient_checkpointing if needed"
+  - "Expected to achieve better perplexity and NIAH scores than 350M"
+  - "Throughput will be ~20-30% lower than 350M due to model size"

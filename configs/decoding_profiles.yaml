@@ -1,0 +1,26 @@
+profiles:
+  - profile_id: "18f5af2a-6a69-49fc-9c09-36bf8f51c2bd"
+    name: "Deterministic-Guardrail"
+    mode: "DETERMINISTIC"
+    parameters:
+      temperature: 0.0
+      top_p: 0.0
+      top_k: 1
+      max_new_tokens: 200
+      reuse_state: true
+    latency_budget_ms: 350
+    quality_notes: "High-confidence decoding with strict guardrails. Prefers shortest consistent answers."
+    enabled: true
+  - profile_id: "8e60d9a5-7646-4f2f-bf0c-0eefc3c3c947"
+    name: "Exploratory-Search"
+    mode: "EXPLORATORY"
+    parameters:
+      temperature: 0.8
+      top_p: 0.9
+      top_k: 40
+      repetition_penalty: 1.05
+      max_new_tokens: 256
+      reuse_state: true
+    latency_budget_ms: 450
+    quality_notes: "Diverse decoding for brainstorming and multi-step reasoning."
+    enabled: true
