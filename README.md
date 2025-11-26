@@ -168,6 +168,10 @@ distill_alpha: 0.5              # CE vs KL balance
 └── tests/                   # Test suite
 ```
 
+## Legacy Code Notice
+
+To preserve lessons from the original Titans/RheaNet exploration, this repository still contains legacy modules (for example under `src/models/hrm/` and the `tests/titans/` suites). These files are **not** part of the current distillation pipeline but remain for reference. When extending the project, focus on the RetNet distillation paths documented above and treat the Titans/HRM code as archival.
+
 ## Requirements
 
 - **Python**: 3.10 or 3.11

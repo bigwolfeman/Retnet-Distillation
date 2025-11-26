@@ -3,14 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "retnet-hrm"
+name = "retnet-distillation"
 version = "0.1.0"
-description = "RetNet-HRM: Long-context coding assistant with adaptive computation and retrieval"
+description = "RetNet-Distillation"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "RetNet-HRM Team"}
+    {name = "RetNet-distillation Team"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
