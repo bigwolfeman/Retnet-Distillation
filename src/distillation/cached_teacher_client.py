@@ -8,7 +8,7 @@ Usage:
     # Use cached client instead of VLLMTeacherClient
     client = CachedTeacherClient(
         cache_dir="data/teacher_cache/",
-        fallback_url="http://192.168.0.71:8080",
+        fallback_url="http://localhost:8080",
         fallback_api_key="token-abc123",
     )
 
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     # Example with explicit IDs (recommended)
     client = CachedTeacherClientWithExplicitIDs(
         cache_dir="data/teacher_cache_test/",
-        fallback_url="http://192.168.0.71:8080",
+        fallback_url="http://localhost:8080",
         fallback_api_key="token-abc123",
     )
 

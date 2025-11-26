@@ -50,7 +50,7 @@ class VLLMTeacherClient:
     for knowledge distillation. No custom endpoint required!
 
     Attributes:
-        base_url: Base URL to vLLM server (e.g., "http://192.168.0.71:8080")
+        base_url: Base URL to vLLM server (e.g., "http://localhost:8080")
         model: Model name/identifier
         api_key: Optional API key for authentication
         timeout: Request timeout in seconds (default: 30)
@@ -73,7 +73,7 @@ class VLLMTeacherClient:
         Initialize vLLM teacher client.
 
         Args:
-            base_url: Base URL to vLLM server (e.g., "http://192.168.0.71:8080")
+            base_url: Base URL to vLLM server (e.g., "http://localhost:8080")
             model: Model identifier (e.g., "meta-llama/Llama-3.2-1B-Instruct")
             api_key: Optional API key for Bearer token authentication
             timeout: Request timeout in seconds

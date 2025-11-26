@@ -10,10 +10,10 @@ echo ""
 
 # Check if teacher server is reachable
 echo "1. Checking teacher server health..."
-if curl -s -o /dev/null -w "%{http_code}" http://192.168.0.71:8080/health | grep -q "200"; then
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health | grep -q "200"; then
     echo "   ✓ Teacher server is reachable"
 else
-    echo "   ✗ Teacher server is not reachable at http://192.168.0.71:8080"
+    echo "   ✗ Teacher server is not reachable at http://localhost:8080"
     echo "   Please start the teacher server first"
     exit 1
 fi

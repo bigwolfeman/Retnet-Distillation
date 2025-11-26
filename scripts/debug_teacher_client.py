@@ -23,7 +23,7 @@ def main():
 
     # Create client
     client = VLLMTeacherClient(
-        base_url="http://192.168.0.71:8080",
+        base_url="http://localhost:8080",
         model="meta-llama/Llama-3.2-1B-Instruct",
         api_key="token-abc123",
         topk=128,

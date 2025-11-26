@@ -10,7 +10,7 @@ from transformers import AutoTokenizer
 # Configuration
 TOKENIZER_NAME = "meta-llama/Llama-3.2-1B"
 MAX_SEQ_LENGTH = 4096
-SAMPLE_FILE = Path("/mnt/BigAssDrive/00projects/00DeepNet/000Distill-Titan-Retnet-HRM/data/raw_fineweb/train/train.jsonl")
+SAMPLE_FILE = Path("distillation/instruction_chat/openhermes.jsonl")  # Update with your data file
 
 def main():
     print("="*60)

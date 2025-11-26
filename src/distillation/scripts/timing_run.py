@@ -332,7 +332,7 @@ def run_timing_test(
     log_interval: int = 10,
     output_path: Optional[Path] = None,
     use_real_teacher: bool = False,
-    teacher_url: str = "http://192.168.0.71:8080",
+    teacher_url: str = "http://localhost:8080",
     teacher_model: str = "meta-llama/Llama-3.2-1B-Instruct",
     teacher_api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -344,7 +344,7 @@ def run_timing_test(
         log_interval: Steps between logging (default: 10)
         output_path: Path to save timing report JSON
         use_real_teacher: Whether to use real vLLM teacher server (default: False)
-        teacher_url: URL to vLLM teacher server (default: http://192.168.0.71:8080)
+        teacher_url: URL to vLLM teacher server (default: http://localhost:8080)
         teacher_model: Teacher model identifier (default: meta-llama/Llama-3.2-1B-Instruct)
         teacher_api_key: Optional API key for teacher server authentication
 
@@ -794,8 +794,8 @@ def main():
     parser.add_argument(
         "--teacher-url",
         type=str,
-        default="http://192.168.0.71:8080",
-        help="URL to vLLM teacher server (default: http://192.168.0.71:8080)",
+        default="http://localhost:8080",
+        help="URL to vLLM teacher server (default: http://localhost:8080)",
     )
     parser.add_argument(
         "--teacher-model",

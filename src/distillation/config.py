@@ -138,7 +138,7 @@ class TrainingConfig:
     teacher_device: str = "cuda"  # Device for teacher model (e.g., "cuda", "cuda:0", "cuda:1")
                                    # Use different device than student for memory isolation
                                    # Reduces memory conflicts when using DirectTeacherClient
-    teacher_url: str = "http://192.168.0.71:8080"
+    teacher_url: str = "http://localhost:8080"
     teacher_model: str = "meta-llama/Llama-3.2-1B-Instruct"
     teacher_adapter_path: Optional[str] = None  # Optional PEFT adapter path for teacher model
     teacher_topk: int = 512  # Increased from 128 for better probability coverage

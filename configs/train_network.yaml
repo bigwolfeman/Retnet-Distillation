@@ -49,7 +49,7 @@ gradient_checkpointing: false
 
 # Teacher settings - NETWORK MODE
 teacher_mode: "network"  # Query remote vLLM server
-teacher_url: "http://192.168.0.71:8080"  # vLLM server URL
+teacher_url: "http://localhost:8080"  # vLLM server URL (update with your server IP)
 teacher_model: "meta-llama/Llama-3.2-1B-Instruct"
 teacher_topk: 128
 teacher_temperature: 2.0

@@ -931,8 +931,8 @@ Examples:
     parser.add_argument(
         "--teacher-url",
         type=str,
-        default="http://192.168.0.71:8080",
-        help="vLLM server URL (default: http://192.168.0.71:8080)",
+        default="http://localhost:8080",
+        help="vLLM server URL (default: http://localhost:8080)",
     )
 
     parser.add_argument(

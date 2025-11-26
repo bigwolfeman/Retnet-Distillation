@@ -58,7 +58,7 @@ from src.distillation.fast_teacher_client import FastTeacherClient
 
 # Drop-in replacement for VLLMTeacherClient
 client = FastTeacherClient(
-    base_url="http://192.168.0.71:8080",
+    base_url="http://localhost:8080",
     model="meta-llama/Llama-3.2-1B-Instruct",
     api_key="token-abc123",
     fallback_to_slow=True,  # Auto-fallback if endpoint unavailable
@@ -176,5 +176,5 @@ For issues:
 
 **Status:** Production ready
 **Created:** 2025-11-02
-**Tested:** Llama-3.2-1B-Instruct @ 192.168.0.71:8080
+**Tested:** Llama-3.2-1B-Instruct
 **Speedup:** 120x+ verified

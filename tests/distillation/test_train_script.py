@@ -477,7 +477,7 @@ class TestMinimalTrainingRun:
             save_interval=5,
             log_interval=1,
             enable_wandb=False,
-            teacher_url="http://192.168.0.71:8080",  # Requires real server
+            teacher_url="http://localhost:8080",  # Requires real server
             eval_perplexity=False,  # Disable for speed
             eval_niah=False,
         )

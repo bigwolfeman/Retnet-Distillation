@@ -2,7 +2,7 @@
 """
 Quick 10-step vLLM Teacher Integration Test
 
-Tests the VLLMTeacherClient with real vLLM server at 192.168.0.71:8080.
+Tests the VLLMTeacherClient with a vLLM server.
 Runs a minimal distillation training loop to verify:
 - Connection works
 - Logits are fetched successfully
@@ -170,7 +170,7 @@ def compute_distillation_loss(
 
 
 def run_integration_test(
-    vllm_url: str = "http://192.168.0.71:8080",
+    vllm_url: str = "http://localhost:8080",
     vllm_model: str = "meta-llama/Llama-3.2-1B-Instruct",
     vllm_api_key: str = "token-abc123",
     num_steps: int = 10,
@@ -481,7 +481,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="vLLM Teacher Integration Test")
-    parser.add_argument("--url", default="http://192.168.0.71:8080", help="vLLM server URL")
+    parser.add_argument("--url", default="http://localhost:8080", help="vLLM server URL")
     parser.add_argument("--model", default="meta-llama/Llama-3.2-1B-Instruct", help="vLLM model name")
     parser.add_argument("--api-key", default="token-abc123", help="vLLM API key")
     parser.add_argument("--steps", type=int, default=10, help="Number of training steps")

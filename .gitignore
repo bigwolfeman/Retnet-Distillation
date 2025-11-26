@@ -146,6 +146,8 @@ data/distillation_preprocessed_instruct/*/*.parquet
 *.ckpt
 runs/**/checkpoints/
 runs/**/logs/
+runs/**/config.yaml
+runs/**/training_state.json
 
 # Wandb
 wandb/

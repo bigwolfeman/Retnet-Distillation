@@ -22,8 +22,8 @@ MAX_SEQ_LENGTH = 8192  # 8K tokens - good balance for 1B model
 SHARD_SIZE = 2 * 1024 * 1024 * 1024  # 2GB per shard
 
 # Default Input/Output paths (can be overridden by CLI args)
-DEFAULT_INPUT = Path("/mnt/BigAssDrive/00projects/00DeepNet/000Distill-Titan-Retnet-HRM/data/fineweb_large")
-DEFAULT_OUTPUT = Path("/mnt/BigAssDrive/00projects/00DeepNet/000Distill-Titan-Retnet-HRM/data/fineweb_large_preprocessed")
+DEFAULT_INPUT = Path("distillation")
+DEFAULT_OUTPUT = Path("distillation_preprocessed")
 
 
 def pack_sequences(tokens_list: List[List[int]], max_length: int) -> List[np.ndarray]:

@@ -35,7 +35,7 @@ gradient_checkpointing: false  # Disabled for 350M (fits in VRAM)
 teacher_device: "cuda"  # Device for teacher model (e.g., "cuda", "cuda:0", "cuda:1")
                         # Use different device than student for memory isolation when using DirectTeacherClient
                         # Reduces 8-10GB memory conflicts on same GPU
-teacher_url: "http://192.168.0.71:8080"  # vLLM server URL
+teacher_url: "http://localhost:8080"  # vLLM server URL (update with your server IP)
 teacher_model: "meta-llama/Llama-3.2-1B-Instruct"
 teacher_topk: 128  # Number of top-k logits
 teacher_temperature: 2.0  # Softmax temperature

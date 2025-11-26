@@ -1,417 +1,192 @@
-# RetNet-HRM: Hierarchical Reasoning Machine with Titans Memory
+# RetNet Distillation Pipeline
 
-A novel neural architecture combining RetNet's efficient long-context processing with Hierarchical Reasoning Machine (HRM) adaptive computation and Titans-style persistent memory. This repository serves as an architecture demonstration and distillation target for researchers working on efficient reasoning models.
+A hackathon project focused on making next-generation recurrent architectures (RetNet) accessible and trainable on consumer hardware. While Transformers dominate the landscape, their O(N²) complexity limits context scaling. RetNet offers what the authors call the "impossible triangle": **O(1) inference, O(N) training, and competitive performance**.
 
-## Architecture Overview
+## History & Pivot
 
-RetNet-HRM integrates three key architectural innovations:
+This project began with a much more ambitious goal: **RheaNet**. The original vision was to fuse the "Memory-as-Context" architecture (Titans) with the retention mechanism of RetNet to create an "Infinite Context" agent without the "lost in the middle" issues.
 
-### 1. RetNet Backbone
-- Linear attention mechanism enabling O(1) inference memory per layer
-- Supports sequences up to 128k tokens efficiently
-- Three operational modes: parallel training, recurrent inference, chunk-recurrent processing
-- Built on Microsoft's TorchScale RetNet implementation
+However, the complexity of managing Titan's Neural Memory modules alongside the already-delicate RetNet recurrence led to a chaotic development cycle. Training stability was non-existent.
 
-### 2. Hierarchical Reasoning Machine (HRM + ACT)
-- **Adaptive Computation Time (ACT)**: Dynamic per-token computation allocation
-- **Halting mechanism**: Learned confidence thresholds for early exit
-- **Blackboard architecture**: MAC (Memory-As-Context) coupling for multi-module coordination
-- Specialized L-Engines for domain-specific reasoning (math, code, general)
+I made the hard call to pivot. I stripped the architecture down to a bare RetNet and focused entirely on the training loop. The result is this project: a robust, well-tested distillation pipeline for RetNet.
 
-### 3. Titans Memory System
-- **MAG (Memory-As-Gating)**: Persistent memory gates model updates
-- Test-time memory writes with drift control
-- Surprise-weighted memory updates
-- EMA rollback for stability
+## Features
 
-### 4. RheaNet: Retention + MAC Integration (New!)
+### 1. High-Performance Distillation Engine
 
-**RheaNet** is a novel integration layer that combines retention mechanisms with Titans' Memory-As-Context architecture for efficient long-context processing:
+The core of the project is a modular distillation system that supports three modes:
 
-#### What is RheaNet?
+| Mode | Description | VRAM | Best For |
+|------|-------------|------|----------|
+| **Direct** | Teacher + student on same GPU | ~14GB | Fast iteration, single GPU |
+| **Cached** | Pre-computed teacher logits from disk | ~9GB | Production training, reproducibility |
+| **Network** | Teacher on separate vLLM server | ~9GB | Multi-node, large teachers |
 
-RheaNet replaces traditional O(T²) attention with retention-based processing while preserving the MAC (Memory-As-Context) semantics that make Titans effective. It achieves:
+- **Direct Mode**: Loads Llama-3.2-1B (teacher) and RetNet-500M (student) simultaneously. At 1K sequence length: **0.1s per optimizer step**. At 4K: **0.3s per step**.
+- **Cached Mode**: Pre-compute teacher logits to disk, then train without teacher overhead.
+- **Network Mode**: Offloads the teacher to a vLLM-compatible server with a custom `/v1/topk` endpoint for **100x faster** logit extraction.
 
-- **O(T) training complexity**: Linear scaling with sequence length via block-scan
-- **O(1) per-layer inference**: Constant memory through recurrent state reuse
-- **Bounded memory retrieval**: Fixed N_ℓ memory tokens per chunk
-- **Persistent context**: Learnable tokens that carry global information
+### 2. Advanced Training Stability
 
-#### Key Benefits
+Chasing down bugs in the original Titans implementation led to building a comprehensive system for detecting training pathologies:
 
-1. **25-50% Speedup**: Reduced from ~0.58s/step to ~0.34-0.44s/step on 350M models
-2. **Linear Memory Scaling**: No O(T²) attention matrices during training
-3. **Streaming Generation**: True sequential processing with state reuse
-4. **MAC Compatibility**: Preserves `[persistent | memory | retention]` dataflow
+- **Saddle Point Escape**: Automated detection when the model gets stuck in local minima, with interventions (LR spikes) to escape.
+- **Muon Optimizer**: Integrated for superior RetNet performance vs AdamW. Uses Muon for 2D+ parameters, AdamW for 1D.
+- **Diversity Regularization**: Custom loss components to ensure the student learns the distribution, not just the mode.
 
-#### Architecture Components
+### 3. Production-Ready Infrastructure
 
-RheaNet consists of three integrated pieces:
+- **Pre-tokenized Data Pipeline**: Custom `PretokenizedShardDataset` handles massive datasets with minimal RAM usage.
+- **Fragmented Memory Fixes**: Custom PyTorch CUDA allocator configurations to prevent OOM during long runs.
+- **WandB Integration**: Full telemetry for loss, gradient norms, evaluations, saddle detection, and memory usage.
+- **Teacher Finetuning Pipeline**: **Critical for convergence.** Microsoft research shows 4.5× faster convergence when finetuning the teacher first. Without it, distillation on pure logits struggles to converge.
 
-1. **Retention Block** (`retention_block.py`)
-   - Learnable log-decay parameters per head
-   - Three modes: parallel (training), recurrent (inference), chunk-wise (streaming)
-   - FP32 accumulation for numerical stability
+### 4. TorchScale Patch
 
-2. **MAC Dataflow** (`titan_retention_layer.py`)
-   - Constructs augmented sequence: `[P | h_t | Y]` where:
-     - P = persistent tokens (global context)
-     - h_t = retention output (current chunk)
-     - Y = top-N_ℓ memory retrievals (bounded history)
-   - Local mixer (windowed attention) over augmented sequence
-   - Gating to blend retention + memory outputs
-
-3. **Memory Integration** (`titan_memory.py`)
-   - Surprise-weighted EMA writes
-   - Capacity-based eviction (no unbounded growth)
-   - Top-k retrieval with zero padding
-
-#### Dependency Expectations
-
-**Required:**
-- PyTorch 2.0+ with CUDA support
-- FP32 accumulation for retention state (bf16/fp16 inputs okay)
-- Block size ≥ 16 for efficient parallel training
-
-**Configuration:**
-```python
-from src.models.titans.titan_config import TitanMACConfig
-
-config = TitanMACConfig(
-    use_retention=True,           # Enable retention instead of attention
-    retention_block_len=64,       # Block size for block-scan
-    n_persistent_tokens=8,        # Global context tokens
-    n_memory_tokens=32,           # Bounded retrieval count (N_ℓ)
-    mixer_window_size=256,        # Local attention window
-)
-```
-
-> **Progress** (2025-11-06): Retention kernel, MAC dataflow, streaming state threading, and windowed attention are implemented with benchmarks captured. Repository-wide pytest still hits legacy import failures—see `/docs/RheaNet.md` for status details.
-
-#### High-Level Architecture Flow
-
-```
-Input Tokens
-    ↓
-Retention Block (parallel/recurrent/chunk)
-    ↓
-    [retention output h_t]
-    ↓
-Augment with Persistent + Memory
-    ↓
-    [P | h_t | Y]  ← augmented sequence
-    ↓
-Local Mixer (windowed attention)
-    ↓
-Gating (blend retention + memory)
-    ↓
-Output Tokens
-```
-
-#### Numerical Guarantees
-
-- **FP32 tolerance**: max_abs_error < 1e-5 between parallel and recurrent modes
-- **BF16 tolerance**: max_abs_error < 5e-3 between modes
-- **Memory**: O(T) during training, O(1) per layer during inference
-- **No O(T²) allocations**: Verified via memory profiling
-
-#### Getting Started with RheaNet
-
-See `/specs/001-rheanet-implementation/quickstart.md` for detailed setup instructions, testing, and benchmarking commands.
-
-For implementation details, see:
-- `/specs/001-rheanet-implementation/spec.md` - Full specification
-- `/specs/001-rheanet-implementation/plan.md` - Implementation plan
-- `/specs/001-rheanet-implementation/tasks.md` - Task breakdown
-- `/docs/RheaNet.md` - Architecture deep-dive & progress tracker
-
-## Key Features
-
-- **Efficient Long Context**: O(1) memory per layer during inference (vs O(n) for standard transformers)
-- **Adaptive Computation**: Halting mechanism reduces compute for simple tokens
-- **Modular Design**: Blackboard-based coordination between specialized reasoning engines
-- **Persistent Memory**: Titans memory enables continual adaptation without catastrophic forgetting
-- **Teacher Finetuning**: Optional teacher adaptation for 4.5x faster distillation convergence with improved logit alignment
-- **170+ Architecture Tests**: Comprehensive test suite validating all architectural components
-
-## Installation
-
-### Prerequisites
-- Python 3.10 or 3.11
-- PyTorch 2.0+
-- CUDA 11.8+ (for GPU support)
-
-### Setup
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd 000Distill-Titan-Retnet-HRM
-```
-
-2. Install dependencies:
-```bash
-pip install -e .
-```
-
-This will automatically install the bundled TorchScale fork required for RetNet support.
-
-Alternatively, use requirements.txt:
-```bash
-pip install -r requirements.txt
-```
+RetNet is still experimental in TorchScale. This repo includes a patched version of TorchScale with necessary fixes for stable training.
 
 ## Quick Start
 
-For a complete walkthrough including optional teacher finetuning for improved distillation, see [quickstart.md](quickstart.md).
+See **[QUICKSTART.md](QUICKSTART.md)** for the complete walkthrough.
 
-### Basic Inference
-
-```python
-import torch
-from src.models.retnet.backbone import RetNetBackbone
-
-# Initialize model
-model = RetNetBackbone(
-    vocab_size=100352,
-    d_model=2816,
-    n_layers=28,
-    n_heads=12,
-    dropout=0.1,
-)
-
-# Load pretrained weights (if available)
-# checkpoint = torch.load("model.safetensors")
-# model.load_state_dict(checkpoint)
-
-# Prepare input
-input_ids = torch.randint(0, 100352, (1, 512))  # [batch, seq_len]
-
-# Forward pass (parallel training mode)
-with torch.no_grad():
-    hidden_states = model.forward_train(input_ids)  # [batch, seq_len, d_model]
-```
-
-### Recurrent Inference (O(1) Memory)
-
-```python
-# For deployment/inference with minimal memory
-# Process tokens one at a time with recurrent mode
-with torch.no_grad():
-    hidden_states = model.forward_recurrent(input_ids)  # [batch, seq_len, d_model]
-```
-
-### HRM with Adaptive Computation
-
-```python
-from src.models.hrm.controller import HRMController
-
-# Initialize HRM controller with ACT
-hrm = HRMController(
-    d_model=2816,
-    max_steps=12,
-    halt_threshold=0.95,
-    time_penalty=0.01
-)
-
-# Process with adaptive computation
-output = hrm(hidden_states)
-# Returns: hidden states with adaptive computation applied
-```
-
-## Architecture Components
-
-### Core Modules
-
-- `src/models/retnet/`: RetNet backbone implementation
-  - O(1) recurrent inference mode
-  - Parallel training mode
-  - Chunk-recurrent for ultra-long sequences
-
-- `src/models/hrm/`: Hierarchical Reasoning Machine
-  - `controller.py`: Main HRM orchestration
-  - `act.py`: Adaptive Computation Time implementation
-  - `halting.py`: Confidence-based halting mechanism
-
-- `src/models/routing/`: Task routing and engine selection
-  - Multi-engine coordination
-  - Blackboard state management
-
-- `src/models/retrieval/`: Long-term memory and retrieval
-  - `landmark.py`: Landmark attention for compression
-  - `compressor.py`: Memory compression strategies
-  - `registry.py`: Retrieval index management
-
-### Titans Integration
-
-The Titans memory system provides persistent, test-time adaptation:
-
-```python
-from src.models.titans.neural_memory import NeuralMemory
-
-# Initialize Titans memory
-memory = NeuralMemory(
-    d_model=2816,
-    memory_size=4096,
-    num_heads=12,
-)
-
-# Use in forward pass with MAG coupling
-memory_output = memory.retrieve(query)
-# Memory gates FFN updates in the Titans H-Layer
-```
-
-## TorchScale Dependency
-
-This repository includes a bundled fork of Microsoft's TorchScale library in `./torchscale/`. The fork includes:
-
-- Core RetNet implementation (MIT License)
-- Multi-scale retention mechanism
-- xPos relative position encoding
-- Essential components only (examples and training code removed)
-
-The original TorchScale README and license are preserved in the `torchscale/` directory.
-
-## Testing
-
-Run the comprehensive architecture test suite:
+**TL;DR:**
 
 ```bash
-# All tests
-pytest tests/
+# 1. Install
+git clone <repo-url> && cd retnet-distillation
+pip install -e .
 
-# Unit tests only
-pytest tests/unit/
+# 2. Download data (~5GB)
+cd data && python download_curriculum_datasets.py --category instruction_chat
 
-# Specific component
-pytest tests/unit/test_retnet_backbone.py
+# 3. Tokenize
+python preprocess_to_parquet.py \
+    --input data/distillation \
+    --output data/distillation_preprocessed \
+    --recursive
 
-# GPU-required tests (if available)
-pytest tests/unit/ -m gpu
+# 4. (Strongly Recommended) Finetune teacher
+python scripts/finetune_teacher.py --config configs/teacher_ft.yaml
 
-# Skip slow tests
-pytest tests/unit/ -m "not slow"
+# 5. Train!
+python -m src.distillation.scripts.train --config configs/train_direct.yaml
 ```
 
-170+ tests validate:
-- RetNet attention mechanics
-- HRM halting and adaptive computation
-- Titans memory persistence
-- Blackboard coordination
-- Routing and arbitration
-- Symbolic computation (sympy integration)
+## Architecture
+
+The current model is a **500M parameter RetNet** trained on instruction-tuning data. By distilling from a finetuned Llama-3.2-1B-Instruct, we bypass the trillions of tokens usually required for pre-training and jump straight to a usable, instruction-following recurrent model.
+
+**Model Variants:**
+- `350M`: Lighter, faster training
+- `500M`: Default, better quality (configured in `configs/train_direct.yaml`)
+
+## Training Modes
+
+### Direct Mode (Recommended for Single GPU)
+
+```bash
+python -m src.distillation.scripts.train --config configs/train_direct.yaml
+```
+
+- Loads both models on same GPU
+- Fastest feedback loop, no network overhead
+- Requires ~14GB VRAM (teacher 4GB + student 2GB + activations)
+
+### Cached Mode (Best for Production)
+
+```bash
+# 1. Cache teacher logits
+python scripts/cache_teacher_logits.py \
+    --data-path data/distillation_preprocessed \
+    --output-dir data/teacher_cache
+
+# 2. Train from cache
+python -m src.distillation.scripts.train --config configs/train_cached.yaml
+```
+
+- Pre-compute teacher logits once, reuse forever
+- Reproducible training (exact same logits each epoch)
+- Only ~9GB VRAM during training
+
+### Network Mode (Multi-Node / Large Teachers)
+
+```bash
+# Terminal 1: Start vLLM server (on GPU machine)
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-3.2-1B-Instruct \
+    --port 8080
+
+# Terminal 2: Train (can be on different machine)
+python -m src.distillation.scripts.train --config configs/train_network.yaml
+```
+
+- Decouples teacher from training process
+- Scale to larger teachers (70B+) on separate hardware
+- Custom `/v1/topk` endpoint for 100x faster logit extraction
+
+See **[README_FAST_ENDPOINT.md](README_FAST_ENDPOINT.md)** for the custom vLLM endpoint setup.
+
+## Configuration
+
+All training configs are in `configs/`:
+
+| Config | Mode | Use Case |
+|--------|------|----------|
+| `train_direct.yaml` | Direct | Default, single GPU training |
+| `train_cached.yaml` | Cached | Production, reproducible |
+| `train_network.yaml` | Network | Multi-node, large teachers |
+| `teacher_ft.yaml` | - | Teacher finetuning |
+
+Key parameters in `train_direct.yaml`:
+
+```yaml
+model_variant: "500M"           # Student size
+max_seq_length: 1024            # Sequence length
+teacher_model: "meta-llama/Llama-3.2-1B-Instruct"
+teacher_topk: 512               # Top-k logits from teacher
+distill_alpha: 0.5              # CE vs KL balance
+```
 
 ## Project Structure
 
 ```
-.
+├── configs/                 # Training configurations
+├── data/                    # Data scripts and storage
+│   ├── download_curriculum_datasets.py  # Main data downloader
+│   ├── preprocess_to_parquet.py         # Tokenization script
+│   └── QUICKSTART.md                    # Data pipeline guide
+├── scripts/                 # Utility scripts
+│   ├── finetune_teacher.py  # Teacher finetuning
+│   ├── cache_teacher_logits.py
+│   └── evaluate_checkpoint.py
 ├── src/
-│   ├── models/
-│   │   ├── retnet/          # RetNet backbone
-│   │   ├── hrm/             # HRM + ACT
-│   │   ├── routing/         # Task routing
-│   │   ├── retrieval/       # Long-term memory
-│   │   └── attention/       # Attention mechanisms
-│   ├── core/                # Core utilities
-│   ├── config/              # Configuration management
-│   └── data/                # Data utilities
-├── tests/
-│   ├── unit/                # Component tests
-│   └── integration/         # System tests
-├── torchscale/              # Bundled TorchScale fork
-├── docs/                    # Architecture documentation
-└── configs/                 # Model configurations
-
+│   ├── distillation/        # Core distillation code
+│   │   ├── scripts/train.py # Main training script
+│   │   └── dataset.py       # Data loaders
+│   └── models/              # Model architectures
+├── torchscale/              # Patched TorchScale (RetNet)
+└── tests/                   # Test suite
 ```
 
-## Configuration
+## Requirements
 
-Model configurations use YAML files in `configs/`:
-
-```yaml
-# configs/model/retnet_hrm_3b.yaml
-model:
-  backbone: retnet
-  d_model: 2816
-  n_layers: 28
-  n_heads: 12
-
-hrm:
-  max_steps: 12
-  halt_threshold: 0.95
-  time_penalty: 0.01
-
-titans:
-  memory_size: 4096
-  update_rate: 0.01
-  drift_threshold: 0.1
-```
-
-## Documentation
-
-Detailed architecture documentation is available in `docs/`:
-
-- `docs/Titan.md`: Full HRM + Titans specification
-- `docs/gaussian-inner-vision.md`: Vision integration (deferred)
-- `docs/stabilization/`: Numerical stability notes
-
-## Distillation Target
-
-This architecture is designed as a distillation target for larger models. Key characteristics for distillation:
-
-- **Efficient inference**: O(1) memory enables deployment at scale
-- **Modular design**: Distill to specific L-Engines for domain specialization
-- **Adaptive computation**: Students can learn when to halt, reducing inference cost
-- **Long context**: Support for 64k-128k token sequences
-- **Verifiable outputs**: Confidence calibration and halting thresholds
-- **Teacher adaptation**: Optional teacher finetuning on target dataset for 4.5x convergence speedup
-
-### Teacher Finetuning for Knowledge Distillation
-
-The repository includes an optional teacher finetuning step that significantly improves distillation efficiency. By adapting the teacher model to your specific dataset distribution, you can achieve:
-
-- 4.5x faster convergence to target validation loss
-- 15-20% improvement in final distillation quality
-- Better logit alignment between teacher and student
-- Minimal overhead: ~1 epoch (2-4 hours) of finetuning on 5B tokens
-
-To use this feature:
-
-```bash
-# Finetune teacher on your distillation dataset
-make finetune-teacher
-
-# Or run directly:
-python scripts/finetune_teacher.py --config configs/teacher_ft.yaml
-```
-
-The teacher adapters are then automatically used during distillation training. See [quickstart.md](quickstart.md) for detailed instructions.
+- **Python**: 3.10 or 3.11
+- **GPU**: NVIDIA with ≥16GB VRAM (24GB+ recommended)
+- **CUDA**: 11.8+
+- **HuggingFace Token**: Required for Llama models
 
 ## License
 
-MIT License - See LICENSE file for details.
+MIT License. See LICENSE file.
 
 The bundled TorchScale library is also under MIT License (Copyright Microsoft Corporation).
-
-## Citation
-
-If you use this architecture in your research, please cite:
-
-```bibtex
-@software{retnet_hrm_2024,
-  title={RetNet-HRM: Hierarchical Reasoning Machine with Titans Memory},
-  author={RetNet-HRM Team},
-  year={2024},
-  url={https://github.com/...}
-}
-```
-
-## Contributing
-
-This is a research architecture release. For questions or issues with the architecture specification, please open an issue.
 
 ## Acknowledgments
 
 - Microsoft TorchScale team for the RetNet implementation
-- Titans memory system design
-- HRM and ACT research communities
+- The knowledge distillation research community (MiniLLM, NeMo-Aligner)
+- The Titans paper authors for the original inspiration
+
+---
+
+**Happy Distilling!** 🚀

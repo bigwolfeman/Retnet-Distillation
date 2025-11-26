@@ -13,7 +13,7 @@ Usage:
     python scripts/test_fast_endpoint.py
 
     # Test with custom server
-    python scripts/test_fast_endpoint.py --server http://192.168.0.71:8080
+    python scripts/test_fast_endpoint.py --server http://localhost:8080
 
     # Test with more sequences
     python scripts/test_fast_endpoint.py --num-sequences 10
@@ -378,8 +378,8 @@ def main():
     parser.add_argument(
         "--server",
         type=str,
-        default="http://192.168.0.71:8080",
-        help="vLLM server URL (default: http://192.168.0.71:8080)",
+        default="http://localhost:8080",
+        help="vLLM server URL (default: http://localhost:8080)",
     )
     parser.add_argument(
         "--api-key",

@@ -5,7 +5,7 @@
 
 # Overall Configuration
 total_samples: 100000  # Total number of samples to download
-output_dir: "/mnt/BigAssDrive/00projects/00DeepNet/000Distill-Titan-Retnet-HRM/data/distillation"
+output_dir: "data/distillation"
 
 # Category Ratios (must sum to 1.0)
 category_ratios:

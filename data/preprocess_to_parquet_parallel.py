@@ -21,8 +21,8 @@ from functools import partial
 TOKENIZER_NAME = "meta-llama/Llama-3.2-1B"
 MAX_SEQ_LENGTH = 8192
 SHARD_SIZE = 2 * 1024 * 1024 * 1024  # 2GB per shard
-DEFAULT_INPUT = Path("/mnt/BigAssDrive/00projects/00DeepNet/000Distill-Titan-Retnet-HRM/data/fineweb_large")
-DEFAULT_OUTPUT = Path("/mnt/BigAssDrive/00projects/00DeepNet/000Distill-Titan-Retnet-HRM/data/fineweb_large_preprocessed")
+DEFAULT_INPUT = Path("distillation")
+DEFAULT_OUTPUT = Path("distillation_preprocessed")
 
 def tokenize_batch(lines: List[str], tokenizer_name: str) -> List[List[int]]:
     """Tokenize a batch of lines in a worker process."""
