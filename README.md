@@ -4,7 +4,8 @@ https://www.reddit.com/r/LocalLLM/comments/1qseno9/mod_post_announcing_the_winne
 # Post Mortem Thoughts
 Having worked with Retnet and other non quadratic designs, I can say that retention is terrible to work with. It is extremely unstable and the torchscale upstream is incomplete and orphaned by Microsoft. 
 I recommend using the distillation on the TitanMAC implementation here: https://github.com/bigwolfeman/TitanMAC-Standalone
-Titans is an all around superior non quadratic architecture.
+
+Titans is an all around superior non quadratic architecture. The KL distillation pipeline in this project is solid and versatile.
 
 # RetNet Distillation Pipeline
 
@@ -210,6 +211,7 @@ The bundled TorchScale library is also under MIT License (Copyright Microsoft Co
 ---
 
 **Happy Distilling!** 🚀
+
 
 
 
