@@ -1,3 +1,11 @@
+# Second Place Winner of LocalLLM Hackathon
+https://www.reddit.com/r/LocalLLM/comments/1qseno9/mod_post_announcing_the_winners_of_the_rlocalllm/
+
+# Post Mortem Thoughts
+Having worked with Retnet and other non quadratic designs, I can say that retention is terrible to work with. It is extremely unstable and the torchscale upstream is incomplete and orphaned by Microsoft. 
+I recommend using the distillation on the TitanMAC implementation here: https://github.com/bigwolfeman/TitanMAC-Standalone
+Titans is an all around superior non quadratic architecture.
+
 # RetNet Distillation Pipeline
 
 A hackathon project focused on making next-generation recurrent architectures (RetNet) accessible and trainable on consumer hardware. While Transformers dominate the landscape, their O(N²) complexity limits context scaling. RetNet offers what the authors call the "impossible triangle": **O(1) inference, O(N) training, and competitive performance**.
@@ -202,5 +210,6 @@ The bundled TorchScale library is also under MIT License (Copyright Microsoft Co
 ---
 
 **Happy Distilling!** 🚀
+
 
 
