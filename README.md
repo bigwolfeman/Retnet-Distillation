@@ -5,22 +5,11 @@ https://www.reddit.com/r/LocalLLM/comments/1qseno9/mod_post_announcing_the_winne
 Having worked with Retnet and other non quadratic designs, I can say that retention is terrible to work with. It is extremely unstable and the torchscale upstream is incomplete and orphaned by Microsoft. 
 
 
-I recommend using the distillation on the TitanMAC implementation here: https://github.com/bigwolfeman/TitanMAC-Standalone
-
-
-Titans is an all around superior non quadratic architecture. The KL distillation pipeline in this project is solid and versatile.
+DeltaNet is an all around superior non quadratic architecture. The KL distillation pipeline in this project is solid and versatile. Most of the code is for dealing with instabilities from Retnet.
 
 # RetNet Distillation Pipeline
 
 A hackathon project focused on making next-generation recurrent architectures (RetNet) accessible and trainable on consumer hardware. While Transformers dominate the landscape, their O(N²) complexity limits context scaling. RetNet offers what the authors call the "impossible triangle": **O(1) inference, O(N) training, and competitive performance**.
-
-## History & Pivot
-
-This project began with a much more ambitious goal: **RheaNet**. The original vision was to fuse the "Memory-as-Context" architecture (Titans) with the retention mechanism of RetNet to create an "Infinite Context" agent without the "lost in the middle" issues. This was something I had half done before the hackathon.
-
-However, the complexity of managing Titan's Neural Memory modules alongside the already-delicate distillation to RetNet recurrence led to a chaotic development cycle. Training stability was non-existent.
-
-I made the hard call to pivot. I stripped the architecture down to a bare RetNet and focused entirely on the training loop. The result is this project: a robust, well-tested distillation pipeline for RetNet.
 
 ## Features
 
